@@ -12,7 +12,12 @@ App Runner (which is winding down — no new customers/features) and ECS Express
 | Database | Lightsail PostgreSQL `spark-kms-db`, `postgres_16`, bundle `micro` | `pg_trgm` enabled; 7-day automated backups |
 | Image | Pushed to the service's private registry (`:spark-kms.app.N`) | amd64, from the repo `Dockerfile` |
 
-**Live URL:** `https://spark-kms.7020sm9rkgn2y.ap-southeast-1.cs.amazonlightsail.com`
+**Live URL:** `https://kms.paracorplabs.com`
+(default Lightsail URL still works: `https://spark-kms.7020sm9rkgn2y.ap-southeast-1.cs.amazonlightsail.com`)
+
+**Custom domain**: a Lightsail cert `spark-kms-cert` for `kms.paracorplabs.com`,
+DNS-validated + a CNAME to the service in the `paracorplabs.com` Route 53 zone
+(`Z08021231UBQAD3NUQW2H`). HTTPS on the custom domain is managed by Lightsail.
 
 Runtime env (set on the deployment, encrypted at rest by Lightsail):
 `DATABASE_URL` (uses the DB's **hostname** — resolves to the private Lightsail IP

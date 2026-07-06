@@ -1,0 +1,18 @@
+node_modules
+.next
+.git
+.gitignore
+# Never bake secrets into the image — App Runner injects env at runtime.
+.env
+.env.*
+# Dev/test-only, not needed in the production image.
+tests
+test-results
+playwright-report
+playwright.config.ts
+vitest.config.ts
+docker-compose.yml
+scripts
+*.md
+.DS_Store
+*.log

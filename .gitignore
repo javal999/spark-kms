@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Real historical business data — kept out of version control (real PIC names /
+# progress detail). The golden test fixture (spark-kms/tests/fixtures/spark-45.ts)
+# already captures the corrected data needed for tests.
+SPARK WEEKLY UPDATE.numbers
+
+# Local scratch
+*.log

@@ -1,0 +1,52 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { getIronSession } from "iron-session";
+import { sessionOptions, type SessionData } from "@/src/lib/session-config";
+
+/**
+ * Route gate (Next 16 renamed `middleware` → `proxy`). Runs on the Edge, so it
+ * only DECRYPTS the sealed session cookie — no DB, no argon2.
+ *
+ * Tiers:
+ *  - /login              public
+ *  - /admin/*            super only
+ *  - /submit/*           admin or super
+ *  - everything else     any authenticated session (viewer+)
+ *
+ * Fine-grained checks (per-record, per-action) still happen in the route
+ * handlers/pages; this is the coarse perimeter.
+ */
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (pathname === "/login") return NextResponse.next();
+
+  const res = NextResponse.next();
+  const session = await getIronSession<SessionData>(req, res, sessionOptions());
+  const role = session.role;
+
+  if (!role) return redirect(req, "/login", pathname);
+
+  if (pathname.startsWith("/admin") && role !== "super") {
+    return redirect(req, "/", null);
+  }
+  if (
+    pathname.startsWith("/submit") &&
+    !(role === "admin" || role === "super")
+  ) {
+    return redirect(req, "/", null);
+  }
+
+  return res;
+}
+
+function redirect(req: NextRequest, to: string, from: string | null) {
+  const url = req.nextUrl.clone();
+  url.pathname = to;
+  url.search = from ? `?next=${encodeURIComponent(from)}` : "";
+  return NextResponse.redirect(url);
+}
+
+export const config = {
+  // Run on all page routes; skip API (self-gated), Next internals, and files.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+};

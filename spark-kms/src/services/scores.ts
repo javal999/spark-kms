@@ -1,0 +1,256 @@
+import { sql } from "drizzle-orm";
+import { db } from "@/src/db";
+import { weekStart, weekEnd, weekRangeFromKey, jakartaDate } from "@/src/services/week";
+
+/**
+ * Read-only score aggregations. REQ-S1: no stored totals — every number here is
+ * a live SUM over score_events. Optional `weekKey` (YYYY-Www) restricts to a
+ * week via effective_date; omit for all-time.
+ */
+
+function weekFilter(weekKey?: string) {
+  if (!weekKey) return { start: null as string | null, end: null as string | null };
+  const { start, end } = weekRangeFromKey(weekKey);
+  return { start: jakartaDate(start), end: jakartaDate(end) };
+}
+
+export type LeaderboardRow = {
+  rank: number;
+  region: string;
+  segment: string;
+  presenter: number;
+  best_practice: number;
+  cee: number;
+  cee_best: number;
+  total: number;
+};
+
+/**
+ * Per-Area (region × segment) stream sums + total, ranked. Only areas with ≥1
+ * initiative appear (D4). Ties share rank (competition ranking: 1,2,2,4).
+ */
+export async function areaLeaderboard(weekKey?: string): Promise<LeaderboardRow[]> {
+  const { start, end } = weekFilter(weekKey);
+  const dateClause = start
+    ? sql`AND se.effective_date BETWEEN ${start} AND ${end}`
+    : sql``;
+
+  const rows = await db.execute(sql`
+    WITH areas AS (
+      SELECT DISTINCT region::text AS region, segment::text AS segment FROM initiatives
+    ),
+    agg AS (
+      SELECT se.region::text AS region, se.segment::text AS segment,
+             se.stream::text AS stream, sum(se.points)::int AS pts
+      FROM score_events se
+      WHERE true ${dateClause}
+      GROUP BY se.region, se.segment, se.stream
+    )
+    SELECT a.region, a.segment,
+      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'presenter'), 0)::int AS presenter,
+      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'best_practice'), 0)::int AS best_practice,
+      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'cee'), 0)::int AS cee,
+      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'cee_best'), 0)::int AS cee_best
+    FROM areas a
+    LEFT JOIN agg ON agg.region = a.region AND agg.segment = a.segment
+    GROUP BY a.region, a.segment
+  `);
+
+  const list = (rows as unknown as Array<Record<string, unknown>>).map((r) => {
+    const presenter = Number(r.presenter);
+    const best_practice = Number(r.best_practice);
+    const cee = Number(r.cee);
+    const cee_best = Number(r.cee_best);
+    return {
+      region: String(r.region),
+      segment: String(r.segment),
+      presenter,
+      best_practice,
+      cee,
+      cee_best,
+      total: presenter + best_practice + cee + cee_best,
+    };
+  });
+
+  // Sort by total desc, then a stable region/segment order for deterministic ties.
+  list.sort(
+    (a, b) =>
+      b.total - a.total ||
+      a.region.localeCompare(b.region) ||
+      a.segment.localeCompare(b.segment),
+  );
+
+  // Competition ranking: equal totals share the same rank.
+  let rank = 0;
+  let prevTotal: number | null = null;
+  return list.map((row, i) => {
+    if (prevTotal === null || row.total !== prevTotal) {
+      rank = i + 1;
+      prevTotal = row.total;
+    }
+    return { rank, ...row };
+  });
+}
+
+export type TopInitiative = {
+  id: number;
+  title: string;
+  region: string;
+  segment: string;
+  points: number;
+};
+
+/** Initiatives ranked by SUM of their linked score events (week or all-time). */
+export async function topInitiatives(
+  weekKey?: string,
+  limit = 10,
+): Promise<TopInitiative[]> {
+  const { start, end } = weekFilter(weekKey);
+  const dateClause = start
+    ? sql`AND se.effective_date BETWEEN ${start} AND ${end}`
+    : sql``;
+
+  const rows = await db.execute(sql`
+    SELECT i.id, i.title, i.region::text AS region, i.segment::text AS segment,
+           coalesce(sum(se.points), 0)::int AS points
+    FROM initiatives i
+    JOIN score_events se ON se.initiative_id = i.id
+    WHERE true ${dateClause}
+    GROUP BY i.id, i.title, i.region, i.segment
+    HAVING coalesce(sum(se.points), 0) > 0
+    ORDER BY points DESC, i.id ASC
+    LIMIT ${limit}
+  `);
+
+  return (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+    id: Number(r.id),
+    title: String(r.title),
+    region: String(r.region),
+    segment: String(r.segment),
+    points: Number(r.points),
+  }));
+}
+
+export type StreamTotals = {
+  best_practice: number;
+  presenter: number;
+  cee: number;
+  cee_best: number;
+  total: number;
+};
+
+/** Per-stream totals for a single initiative (detail page points panel). */
+export async function initiativeStreamTotals(
+  initiativeId: number,
+): Promise<StreamTotals> {
+  const rows = await db.execute(sql`
+    SELECT stream::text AS stream, sum(points)::int AS pts
+    FROM score_events WHERE initiative_id = ${initiativeId}
+    GROUP BY stream
+  `);
+  const t: StreamTotals = {
+    best_practice: 0,
+    presenter: 0,
+    cee: 0,
+    cee_best: 0,
+    total: 0,
+  };
+  for (const r of rows as unknown as Array<{ stream: string; pts: number }>) {
+    const v = Number(r.pts);
+    (t as unknown as Record<string, number>)[r.stream] = v;
+    t.total += v;
+  }
+  return t;
+}
+
+export type DashboardStats = {
+  total: number;
+  newThisWeek: number;
+  existing: number;
+  byStage: Record<string, number>;
+  byPillar: Record<string, number>;
+  byRegion: Record<string, number>;
+  bySegment: Record<string, number>;
+  withBestPractice: number;
+  withUnlocking: number;
+};
+
+/** Dashboard counters + distributions (all counts, clickable to the list). */
+export async function dashboardStats(now: Date = new Date()): Promise<DashboardStats> {
+  const wkStart = weekStart(now).toISOString();
+  const wkEnd = weekEnd(now).toISOString();
+
+  const [{ total, newThisWeek }] = (await db.execute(sql`
+    SELECT count(*)::int AS total,
+           count(*) FILTER (WHERE created_at BETWEEN ${wkStart} AND ${wkEnd})::int AS "newThisWeek"
+    FROM initiatives
+  `)) as unknown as Array<{ total: number; newThisWeek: number }>;
+
+  const dist = async (col: string) => {
+    const rows = await db.execute(
+      sql`SELECT ${sql.raw(col)}::text AS k, count(*)::int AS c FROM initiatives GROUP BY ${sql.raw(col)}`,
+    );
+    const out: Record<string, number> = {};
+    for (const r of rows as unknown as Array<{ k: string; c: number }>) {
+      out[String(r.k)] = Number(r.c);
+    }
+    return out;
+  };
+
+  const [byStage, byPillar, byRegion, bySegment] = await Promise.all([
+    dist("stage"),
+    dist("pillar"),
+    dist("region"),
+    dist("segment"),
+  ]);
+
+  const [{ withBestPractice, withUnlocking }] = (await db.execute(sql`
+    SELECT
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM entries e WHERE e.initiative_id = i.id AND e.category = 'Best Practice'))::int AS "withBestPractice",
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM entries e WHERE e.initiative_id = i.id AND e.category = 'Unlocking'))::int AS "withUnlocking"
+    FROM initiatives i
+  `)) as unknown as Array<{ withBestPractice: number; withUnlocking: number }>;
+
+  return {
+    total: Number(total),
+    newThisWeek: Number(newThisWeek),
+    existing: Number(total) - Number(newThisWeek),
+    byStage,
+    byPillar,
+    byRegion,
+    bySegment,
+    withBestPractice: Number(withBestPractice),
+    withUnlocking: Number(withUnlocking),
+  };
+}
+
+/** Flat list of an area's score events for the leaderboard click-through. */
+export async function areaScoreEvents(
+  region: string,
+  segment: string,
+  weekKey?: string,
+) {
+  const { start, end } = weekFilter(weekKey);
+  const dateClause = start
+    ? sql`AND se.effective_date BETWEEN ${start} AND ${end}`
+    : sql``;
+  const rows = await db.execute(sql`
+    SELECT se.id, se.stream::text AS stream, se.reason::text AS reason,
+           se.points::int AS points, se.effective_date::text AS effective_date,
+           se.initiative_id AS initiative_id, i.title AS title, se.note
+    FROM score_events se
+    LEFT JOIN initiatives i ON i.id = se.initiative_id
+    WHERE se.region = ${region}::region AND se.segment = ${segment}::segment ${dateClause}
+    ORDER BY se.effective_date DESC, se.id DESC
+  `);
+  return (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+    id: Number(r.id),
+    stream: String(r.stream),
+    reason: String(r.reason),
+    points: Number(r.points),
+    effectiveDate: String(r.effective_date),
+    initiativeId: r.initiative_id ? Number(r.initiative_id) : null,
+    title: r.title ? String(r.title) : null,
+    note: r.note ? String(r.note) : null,
+  }));
+}

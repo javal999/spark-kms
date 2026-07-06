@@ -1,0 +1,26 @@
+# Local Postgres with pg_trgm for SPARK KMS dev/test.
+# Use this if you have Docker; otherwise a local Homebrew Postgres 16 works too.
+#   docker compose up -d
+#   DATABASE_URL=postgresql://spark:spark@localhost:5432/spark_kms
+services:
+  db:
+    image: postgres:16
+    container_name: spark-kms-db
+    environment:
+      POSTGRES_USER: spark
+      POSTGRES_PASSWORD: spark
+      POSTGRES_DB: spark_kms
+    ports:
+      - "5432:5432"
+    volumes:
+      - spark_kms_pgdata:/var/lib/postgresql/data
+      # Creates the test database and enables pg_trgm on both on first boot.
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spark -d spark_kms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  spark_kms_pgdata:

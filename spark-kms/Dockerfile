@@ -32,4 +32,7 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 8080
 # DATABASE_URL and SESSION_SECRET are injected by App Runner (from Secrets Manager).
-CMD ["node", "server.js"]
+# Force HOSTNAME=0.0.0.0 at start: App Runner/ECS inject their own HOSTNAME, which
+# would make Next's standalone server bind to a single interface the health check
+# can't reach. The inline assignment overrides the inherited value.
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node server.js"]

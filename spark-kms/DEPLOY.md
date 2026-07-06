@@ -18,7 +18,14 @@ Set these in the host's env (never commit them — `.env*` is gitignored):
 2. Set env secrets.
 3. `npm ci && npm run build`
 4. `npm run db:migrate` (creates schema + `pg_trgm` + trigram index).
-5. Provision the first super-admin and the viewer password **without the dev seed** — run a one-off script or SQL that inserts a `users` row with an argon2 hash and an `app_config` `viewer_password_hash`. (The dev seed is for local/CI only.)
+5. Provision the first super-admin and the viewer password **without the dev seed** (the dev seed is refused in production). Use the idempotent provisioning script:
+   ```
+   DATABASE_URL=postgres://... \
+   ADMIN_EMAIL=you@company.com ADMIN_NAME="Your Name" ADMIN_PASSWORD='a-strong-password' \
+   VIEWER_PASSWORD='the-shared-viewer-password' \
+   npm run db:provision
+   ```
+   It creates the super-admin (argon2-hashed) and sets `viewer_password_hash` + baseline `app_config`. Add more admins later in-app (Admin → Admin accounts).
 6. `npm start` behind HTTPS. Cookies are `secure` in production (`NODE_ENV=production`), so the app **must** be served over TLS or sessions won't stick.
 
 ### Vercel + Neon

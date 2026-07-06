@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
+    "db:provision": "tsx src/db/provision.ts",
     "db:reset": "tsx --env-file=.env src/db/reset.ts",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -57,6 +57,22 @@ npm run db:migrate
 aws lightsail update-relational-database --relational-database-name spark-kms-db --no-publicly-accessible --region ap-southeast-1
 ```
 
+## Integration API & MCP (Phase 5)
+
+The app exposes a Bearer-authenticated integration surface — no new env vars or
+infra; it rides the same container + DB.
+
+- **Keys**: super-admin mints them in the app (Admin → API keys). Stored SHA-256
+  hashed; scopes `read` / `write`; shown once; revocable. Per-key limit 60 req/min.
+- **REST**: `/api/v1/*` (initiatives list/detail/create, entries, dashboard,
+  leaderboard, top-initiatives). Spec at `/api/openapi.json` (OpenAPI 3.1,
+  generated from the Zod validators); human docs at `/api/docs` (Scalar).
+- **MCP**: streamable HTTP at `/api/mcp` (7 tools), same keys/scopes/behavior as
+  REST. Connect a client with header `Authorization: Bearer <key>`.
+- **Schema**: Phase 5 added the `api_keys` table (migration `0001_api_keys`) — an
+  additive change. Apply it with the "Run a database migration" steps below
+  before deploying the Phase 5 image.
+
 ## Operations
 - **HTTPS**: automatic on the Lightsail URL. Custom domain: Lightsail console →
   the container service → Custom domains → add + create the DNS record.

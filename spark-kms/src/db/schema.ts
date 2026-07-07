@@ -89,6 +89,9 @@ export const batchStatusEnum = pgEnum("batch_status", [
   "rejected",
 ]);
 
+// Integration API key scope (requirements 14, REQ-X3). `write` implies `read`.
+export const apiScopeEnum = pgEnum("api_scope", ["read", "write"]);
+
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
@@ -259,6 +262,29 @@ export const uploadBatches = pgTable(
       .defaultNow(),
   },
   (t) => [uniqueIndex("upload_batches_file_hash_idx").on(t.fileHash)],
+);
+
+// Integration API keys (requirements 14, REQ-X2). The raw key is shown ONCE at
+// creation; only its SHA-256 hash is stored. `prefix` is a short non-secret
+// display fragment. `revokedAt`/`lastUsedAt` power the admin management + audit.
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    keyHash: text("key_hash").notNull(),
+    prefix: text("prefix").notNull(),
+    scope: apiScopeEnum("scope").notNull(),
+    createdBy: integer("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("api_keys_key_hash_idx").on(t.keyHash)],
 );
 
 // Convenience type exports for services.

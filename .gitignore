@@ -8,3 +8,6 @@ SPARK WEEKLY UPDATE.numbers
 
 # Local scratch
 *.log
+
+# Generated historical-data import (real business data)
+SPARK-KMS-historical-import.xlsx

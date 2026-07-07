@@ -195,6 +195,129 @@ export function NominationsPanel({ nominations }: { nominations: Nomination[] })
   );
 }
 
+type ApiKey = {
+  id: number;
+  name: string;
+  prefix: string;
+  scope: "read" | "write";
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+};
+
+export function ApiKeysPanel({ apiKeys }: { apiKeys: ApiKey[] }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [scope, setScope] = useState<"read" | "write">("read");
+  const [busy, setBusy] = useState(false);
+  const [newKey, setNewKey] = useState<{ name: string; key: string } | null>(null);
+
+  async function create() {
+    if (!name.trim()) return toast.error("Name the key");
+    setBusy(true);
+    const { ok, data } = await postJSON("/api/admin/api-keys", { name: name.trim(), scope });
+    setBusy(false);
+    if (!ok) return toast.error(data.error ?? "Failed");
+    setNewKey({ name: data.name, key: data.key });
+    setName("");
+    router.refresh();
+  }
+
+  async function revoke(k: ApiKey) {
+    if (!confirm(`Revoke "${k.name}"? Any integration using it stops working immediately.`)) return;
+    const { ok, data } = await postJSON(`/api/admin/api-keys/${k.id}`, {}, "DELETE");
+    if (!ok) return toast.error(data.error ?? "Failed");
+    toast.success("Key revoked");
+    router.refresh();
+  }
+
+  const fmt = (s: string | null) =>
+    s ? new Date(s).toISOString().slice(0, 10) : "—";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>API keys</CardTitle>
+        <CardDescription>
+          Bearer keys for the integration API and MCP server.{" "}
+          <a href="/api/docs" target="_blank" rel="noopener" className="underline">
+            API reference
+          </a>
+          . <span className="font-medium">read</span> keys can query;{" "}
+          <span className="font-medium">write</span> keys can also create initiatives and append entries.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {newKey && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-50 p-3 dark:bg-amber-950/20" data-testid="new-api-key">
+            <p className="text-sm font-medium">Copy “{newKey.name}” now — it is shown only once.</p>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="flex-1 truncate rounded bg-background px-2 py-1 font-mono text-xs">{newKey.key}</code>
+              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(newKey.key); toast.success("Copied"); }}>
+                Copy
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setNewKey(null)}>Done</Button>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Prefix</th>
+                <th className="px-3 py-2">Scope</th>
+                <th className="px-3 py-2">Created</th>
+                <th className="px-3 py-2">Last used</th>
+                <th className="px-3 py-2">Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {apiKeys.length === 0 ? (
+                <tr><td colSpan={7} className="px-3 py-4 text-center text-muted-foreground" data-testid="no-api-keys">No keys yet.</td></tr>
+              ) : apiKeys.map((k) => (
+                <tr key={k.id} className={k.revokedAt ? "opacity-50" : ""}>
+                  <td className="px-3 py-2 font-medium">{k.name}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{k.prefix}…</td>
+                  <td className="px-3 py-2">{k.scope === "write" ? <Badge>write</Badge> : <Badge variant="outline">read</Badge>}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{fmt(k.createdAt)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{fmt(k.lastUsedAt)}</td>
+                  <td className="px-3 py-2">{k.revokedAt ? <span className="text-muted-foreground">Revoked</span> : <span className="text-green-700">Active</span>}</td>
+                  <td className="px-3 py-2 text-right">
+                    {!k.revokedAt && (
+                      <Button variant="ghost" size="sm" onClick={() => revoke(k)} data-testid={`revoke-key-${k.id}`}>Revoke</Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid items-end gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Analytics reader" data-testid="new-key-name" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Scope</Label>
+            <Select value={scope} onValueChange={(v) => v && setScope(v as "read" | "write")}>
+              <SelectTrigger data-testid="new-key-scope"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="read">read (query only)</SelectItem>
+                <SelectItem value="write">write (create + append)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div><Button onClick={create} disabled={busy} data-testid="create-api-key">Create key</Button></div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AreaPicker({
   region, segment, setRegion, setSegment, idPrefix,
 }: {

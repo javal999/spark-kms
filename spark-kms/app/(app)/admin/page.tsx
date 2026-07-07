@@ -1,16 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { listAdmins, listPendingNominations } from "@/src/services/admin";
+import { listApiKeys } from "@/src/services/apiKeys";
 import {
   UsersPanel,
   ViewerPasswordPanel,
   NominationsPanel,
   ScoringPanel,
+  ApiKeysPanel,
 } from "@/components/admin-console";
 
 export default async function AdminPage() {
-  const [admins, nominations] = await Promise.all([
+  const [admins, nominations, apiKeys] = await Promise.all([
     listAdmins(),
     listPendingNominations(),
+    listApiKeys(),
   ]);
 
   return (
@@ -34,6 +37,17 @@ export default async function AdminPage() {
       />
       <ScoringPanel />
       <UsersPanel admins={admins} />
+      <ApiKeysPanel
+        apiKeys={apiKeys.map((k) => ({
+          id: k.id,
+          name: k.name,
+          prefix: k.prefix,
+          scope: k.scope,
+          createdAt: k.createdAt.toISOString(),
+          lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
+          revokedAt: k.revokedAt ? k.revokedAt.toISOString() : null,
+        }))}
+      />
       <ViewerPasswordPanel />
 
       <div className="rounded-lg border bg-card p-4">

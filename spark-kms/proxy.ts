@@ -18,7 +18,11 @@ import { sessionOptions, type SessionData } from "@/src/lib/session-config";
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname === "/login") return NextResponse.next();
+  // Public pages: the login screen and the partner-team integration guide
+  // (direct-link only; not linked in the app nav).
+  if (pathname === "/login" || pathname === "/mcp-guide") {
+    return NextResponse.next();
+  }
 
   const res = NextResponse.next();
   const session = await getIronSession<SessionData>(req, res, sessionOptions());

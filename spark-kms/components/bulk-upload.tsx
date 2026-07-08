@@ -13,6 +13,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import {
+  failureMessage,
+  networkMessage,
+  validateUploadFile,
+  type UploadMessage,
+} from "@/src/lib/upload-errors";
+
+function showError(m: UploadMessage) {
+  toast.error(m.title, m.description ? { description: m.description } : undefined);
+}
 
 type Candidate = { id: number; title: string; region: string; segment: string; similarity: number };
 type PreviewRow = {
@@ -47,6 +57,13 @@ export function BulkUpload() {
   }
 
   async function onFile(f: File) {
+    // Instant, actionable feedback before touching the network.
+    const badFile = validateUploadFile(f.name, f.size);
+    if (badFile) {
+      showError(badFile);
+      return;
+    }
+
     setFile(f);
     setPreview(null);
     setResult(null);
@@ -56,11 +73,11 @@ export function BulkUpload() {
       const fd = new FormData();
       fd.append("file", f);
       const res = await fetch("/api/upload/preview", { method: "POST", body: fd });
-      const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Preview failed");
+        showError(await failureMessage(res, "read"));
         return;
       }
+      const data = await res.json();
       setPreview(data);
       // Pre-seed non-duplicate rows; duplicates must be resolved explicitly.
       const seed: Record<number, Choice> = {};
@@ -91,16 +108,16 @@ export function BulkUpload() {
         Object.fromEntries(Object.entries(choices).map(([k, v]) => [k, v])),
       ));
       const res = await fetch("/api/upload/commit", { method: "POST", body: fd });
-      const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Commit failed");
+        showError(await failureMessage(res, "import"));
         return;
       }
+      const data = await res.json();
       setResult({ created: data.created, appended: data.appended });
       toast.success(`Imported ${data.created + data.appended} rows`);
       router.refresh();
     } catch {
-      toast.error("Network error");
+      showError(networkMessage());
     } finally {
       setBusy(false);
     }

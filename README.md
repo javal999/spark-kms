@@ -31,7 +31,7 @@ integration API + MCP server.
 
 ## Remotes
 
-- **Primary:** this GitLab project (`paragon-is/auth/org/pbs/kms-spark`).
+- **Primary:** this GitLab project (`paragon-is/pbs/kms-spark`).
 - **Backup:** GitHub mirror — push with `git push github main`.
 
 > Real business data (`SPARK WEEKLY UPDATE.numbers`, generated import files,

@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInitiativeDetail } from "@/src/services/initiatives";
+import { getInitiativeEditLog } from "@/src/services/edits";
 import { initiativeStreamTotals } from "@/src/services/scores";
 import { readSession } from "@/src/lib/session";
 import { isAdmin } from "@/src/lib/session-config";
 import { StageControl } from "@/components/stage-control";
-import { ActionItemStatus } from "@/components/action-item-status";
 import { CategoryBadge, StageBadge } from "@/components/badges";
+import {
+  EditInitiative,
+  EditEntry,
+  AdminActionItems,
+  EditHistory,
+} from "@/components/detail-edit";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -30,6 +36,7 @@ export default async function InitiativeDetailPage({
   const admin = isAdmin(session.role);
   const { initiative, entries, actionItems, stageChanges } = detail;
   const points = await initiativeStreamTotals(initiative.id);
+  const editHistory = admin ? await getInitiativeEditLog(initiative.id) : [];
 
   return (
     <div className="flex flex-col gap-8">
@@ -84,6 +91,21 @@ export default async function InitiativeDetailPage({
           >
             {initiative.linkUrl}
           </a>
+        )}
+        {admin && (
+          <div className="mt-1">
+            <EditInitiative
+              initiative={{
+                id: initiative.id,
+                title: initiative.title,
+                description: initiative.description,
+                pillar: initiative.pillar,
+                pic: initiative.pic,
+                linkUrl: initiative.linkUrl,
+                tags: initiative.tags,
+              }}
+            />
+          </div>
         )}
       </div>
 
@@ -164,6 +186,20 @@ export default async function InitiativeDetailPage({
                   {e.linkUrl}
                 </a>
               )}
+              {admin && (
+                <div>
+                  <EditEntry
+                    initiativeId={initiative.id}
+                    entry={{
+                      id: e.id,
+                      detail: e.detail,
+                      followUp: e.followUp,
+                      category: e.category,
+                      linkUrl: e.linkUrl,
+                    }}
+                  />
+                </div>
+              )}
             </li>
           ))}
         </ol>
@@ -174,6 +210,16 @@ export default async function InitiativeDetailPage({
         <h2 className="text-lg font-medium">Action items</h2>
         {actionItems.length === 0 ? (
           <p className="text-sm text-muted-foreground">No action items.</p>
+        ) : admin ? (
+          <AdminActionItems
+            items={actionItems.map((a) => ({
+              id: a.id,
+              description: a.description,
+              pic: a.pic,
+              dueDate: a.dueDate,
+              status: a.status,
+            }))}
+          />
         ) : (
           <div className="rounded-lg border">
             <Table>
@@ -192,11 +238,7 @@ export default async function InitiativeDetailPage({
                     <TableCell>{a.pic}</TableCell>
                     <TableCell>{a.dueDate ?? "—"}</TableCell>
                     <TableCell>
-                      {admin ? (
-                        <ActionItemStatus id={a.id} status={a.status} />
-                      ) : (
-                        <Badge variant="outline">{a.status}</Badge>
-                      )}
+                      <Badge variant="outline">{a.status}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -218,6 +260,24 @@ export default async function InitiativeDetailPage({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* Edit history — admin only (never rendered for viewers). */}
+      {admin && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-medium">Edit history</h2>
+          <EditHistory
+            log={editHistory.map((e) => ({
+              id: e.id,
+              entity: e.entity,
+              field: e.field,
+              oldValue: e.oldValue,
+              newValue: e.newValue,
+              editedAt: e.editedAt.toISOString(),
+              editorName: e.editorName,
+            }))}
+          />
         </section>
       )}
     </div>

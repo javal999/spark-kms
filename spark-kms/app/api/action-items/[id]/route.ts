@@ -2,13 +2,28 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/src/lib/guards";
 import { actionStatusEnum } from "@/src/db/schema";
-import { updateActionItemStatus } from "@/src/services/initiatives";
+import {
+  updateActionItemFields,
+  ActionItemNotFoundError,
+} from "@/src/services/edits";
 
 export const runtime = "nodejs";
 
-const schema = z.object({ status: z.enum(actionStatusEnum.enumValues) });
+const schema = z.object({
+  status: z.enum(actionStatusEnum.enumValues).optional(),
+  description: z.string().trim().min(1).optional(),
+  pic: z.string().trim().min(1).optional(),
+  dueDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
 
-/** PATCH /api/action-items/[id] — inline status update (admin). */
+/**
+ * PATCH /api/action-items/[id] — inline status update or field edit (admin).
+ * All changes are recorded in the edit log.
+ */
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -22,13 +37,23 @@ export async function PATCH(
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
   }
 
-  let status: (typeof actionStatusEnum.enumValues)[number];
+  let body: z.infer<typeof schema>;
   try {
-    status = schema.parse(await req.json()).status;
-  } catch {
-    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    body = schema.parse(await req.json());
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Validation failed", details: (err as z.ZodError).issues },
+      { status: 400 },
+    );
   }
 
-  await updateActionItemStatus(actionItemId, status);
-  return NextResponse.json({ ok: true });
+  try {
+    const changed = await updateActionItemFields(actionItemId, body, gate.userId!);
+    return NextResponse.json({ ok: true, changed });
+  } catch (err) {
+    if (err instanceof ActionItemNotFoundError) {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
+    throw err;
+  }
 }

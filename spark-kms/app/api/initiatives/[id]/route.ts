@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { requireAdmin, requireViewer } from "@/src/lib/guards";
-import { db } from "@/src/db";
-import { initiatives } from "@/src/db/schema";
-import { stageSchema } from "@/src/validation/entry";
-import { changeStage, getInitiativeDetail } from "@/src/services/initiatives";
+import { pillarSchema, stageSchema } from "@/src/validation/entry";
+import {
+  changeStage,
+  getInitiativeDetail,
+  InitiativeNotFoundError,
+} from "@/src/services/initiatives";
+import { updateInitiativeFields } from "@/src/services/edits";
 
 export const runtime = "nodejs";
 
@@ -27,11 +29,18 @@ const patchSchema = z.object({
   stage: stageSchema.optional(),
   title: z.string().trim().min(1).optional(),
   description: z.string().trim().optional(),
+  pillar: pillarSchema.optional(),
   pic: z.string().trim().min(1).optional(),
   linkUrl: z.string().trim().optional(),
+  tags: z.array(z.string().trim().min(1)).optional(),
 });
 
-/** PATCH /api/initiatives/[id] — edit fields; stage change logs stage_changes. */
+/**
+ * PATCH /api/initiatives/[id] — edit descriptive fields (admin). Stage goes
+ * through changeStage (logs stage_changes); other fields go through
+ * updateInitiativeFields, which writes the edit-log audit trail. Area
+ * (region/segment) is intentionally NOT editable — it drives scoring.
+ */
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -55,24 +64,27 @@ export async function PATCH(
     );
   }
 
-  // Stage changes go through the service so stage_changes is always logged.
-  if (body.stage) {
-    await changeStage(initiativeId, body.stage, gate.userId!);
+  try {
+    if (body.stage) {
+      await changeStage(initiativeId, body.stage, gate.userId!);
+    }
+    const changed = await updateInitiativeFields(
+      initiativeId,
+      {
+        title: body.title,
+        description: body.description,
+        pillar: body.pillar,
+        pic: body.pic,
+        linkUrl: body.linkUrl,
+        tags: body.tags,
+      },
+      gate.userId!,
+    );
+    return NextResponse.json({ ok: true, changed });
+  } catch (err) {
+    if (err instanceof InitiativeNotFoundError) {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
+    throw err;
   }
-
-  const fields: Partial<typeof initiatives.$inferInsert> = {};
-  if (body.title !== undefined) fields.title = body.title;
-  if (body.description !== undefined) fields.description = body.description;
-  if (body.pic !== undefined) fields.pic = body.pic;
-  if (body.linkUrl !== undefined) fields.linkUrl = body.linkUrl;
-
-  if (Object.keys(fields).length > 0) {
-    fields.updatedAt = new Date();
-    await db
-      .update(initiatives)
-      .set(fields)
-      .where(eq(initiatives.id, initiativeId));
-  }
-
-  return NextResponse.json({ ok: true });
 }

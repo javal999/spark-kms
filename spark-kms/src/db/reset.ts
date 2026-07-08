@@ -12,7 +12,7 @@ config({ path: ".env" });
 export async function truncateAll() {
   await db.execute(sql`
     TRUNCATE TABLE
-      score_events, stage_changes, action_items, entries,
+      score_events, stage_changes, action_items, entries, edit_log,
       upload_batches, api_keys, initiatives, users, app_config
     RESTART IDENTITY CASCADE
   `);

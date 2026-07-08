@@ -92,6 +92,13 @@ export const batchStatusEnum = pgEnum("batch_status", [
 // Integration API key scope (requirements 14, REQ-X3). `write` implies `read`.
 export const apiScopeEnum = pgEnum("api_scope", ["read", "write"]);
 
+// What kind of record an edit_log row refers to.
+export const editEntityEnum = pgEnum("edit_entity", [
+  "initiative",
+  "entry",
+  "action_item",
+]);
+
 // ---------------------------------------------------------------------------
 // Tables
 // ---------------------------------------------------------------------------
@@ -285,6 +292,32 @@ export const apiKeys = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("api_keys_key_hash_idx").on(t.keyHash)],
+);
+
+// Admin edit audit trail. Every field an admin changes on an initiative, entry,
+// or action item is recorded here (old → new value + who + when). Always scoped
+// to the owning initiative so the whole edit history renders in one query.
+// ADMIN-ONLY — never exposed to viewers.
+export const editLog = pgTable(
+  "edit_log",
+  {
+    id: serial("id").primaryKey(),
+    initiativeId: integer("initiative_id")
+      .notNull()
+      .references(() => initiatives.id),
+    entity: editEntityEnum("entity").notNull(),
+    entityId: integer("entity_id").notNull(),
+    field: text("field").notNull(),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    editedBy: integer("edited_by")
+      .notNull()
+      .references(() => users.id),
+    editedAt: timestamp("edited_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("edit_log_initiative_idx").on(t.initiativeId)],
 );
 
 // Convenience type exports for services.

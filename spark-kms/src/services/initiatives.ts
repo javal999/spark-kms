@@ -11,6 +11,7 @@ import type {
   EntryInput,
 } from "@/src/validation/entry";
 import { award } from "@/src/services/scoring";
+import { splitFollowUp } from "@/src/lib/follow-up";
 
 /**
  * Initiative + entry CRUD (Phase 1). NOTE: scoring is Phase 2 — nothing here
@@ -29,7 +30,8 @@ export class InitiativeNotFoundError extends Error {
 export type CreateInitiativeResult = {
   initiativeId: number;
   entryId: number;
-  actionItemId: number | null;
+  /** One id per action item — a multi-line/numbered follow-up splits into several. */
+  actionItemIds: number[];
 };
 
 /**
@@ -89,7 +91,7 @@ export async function createInitiativeInTx(
       })
       .returning({ id: entries.id });
 
-    const actionItemId = await maybeCreateActionItem(
+    const actionItemIds = await maybeCreateActionItems(
       tx,
       ini.id,
       entry.id,
@@ -126,13 +128,13 @@ export async function createInitiativeInTx(
       tx,
     );
 
-    return { initiativeId: ini.id, entryId: entry.id, actionItemId };
+    return { initiativeId: ini.id, entryId: entry.id, actionItemIds };
   }
 }
 
 export type AppendEntryResult = {
   entryId: number;
-  actionItemId: number | null;
+  actionItemIds: number[];
 };
 
 /** Append an entry to an existing initiative (append branch of Submit). */
@@ -183,7 +185,7 @@ export async function appendEntryInTx(
       })
       .returning({ id: entries.id });
 
-    const actionItemId = await maybeCreateActionItem(
+    const actionItemIds = await maybeCreateActionItems(
       tx,
       initiativeId,
       entry.id,
@@ -207,7 +209,7 @@ export async function appendEntryInTx(
       tx,
     );
 
-    return { entryId: entry.id, actionItemId };
+    return { entryId: entry.id, actionItemIds };
   }
 }
 
@@ -217,31 +219,37 @@ export type ActionItemDraft = {
   dueDate?: string;
 };
 
-async function maybeCreateActionItem(
+async function maybeCreateActionItems(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   initiativeId: number,
   sourceEntryId: number,
   actorId: number,
   followUp: string | undefined,
   opts: { createActionItem?: boolean; actionItem?: ActionItemDraft },
-): Promise<number | null> {
-  if (!opts.createActionItem) return null;
+): Promise<number[]> {
+  if (!opts.createActionItem) return [];
   const draft = opts.actionItem;
-  const description = draft?.description ?? followUp;
-  if (!description || description.trim().length === 0) return null;
+  // A multi-line or numbered/bulleted follow-up becomes several action items;
+  // each shares the draft's PIC + due date (splitFollowUp handles the parsing).
+  const pieces = splitFollowUp(draft?.description ?? followUp);
+  if (pieces.length === 0) return [];
 
-  const [ai] = await tx
-    .insert(actionItems)
-    .values({
-      initiativeId,
-      description,
-      pic: draft?.pic ?? "Unassigned",
-      dueDate: draft?.dueDate,
-      sourceEntryId,
-      createdBy: actorId,
-    })
-    .returning({ id: actionItems.id });
-  return ai.id;
+  const ids: number[] = [];
+  for (const description of pieces) {
+    const [ai] = await tx
+      .insert(actionItems)
+      .values({
+        initiativeId,
+        description,
+        pic: draft?.pic ?? "Unassigned",
+        dueDate: draft?.dueDate,
+        sourceEntryId,
+        createdBy: actorId,
+      })
+      .returning({ id: actionItems.id });
+    ids.push(ai.id);
+  }
+  return ids;
 }
 
 /** Change an initiative's stage and log it to stage_changes. */
@@ -271,16 +279,6 @@ export async function changeStage(
       changedBy: actorId,
     });
   });
-}
-
-export async function updateActionItemStatus(
-  id: number,
-  status: (typeof actionItems.$inferSelect)["status"],
-): Promise<void> {
-  await db
-    .update(actionItems)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(actionItems.id, id));
 }
 
 // ---------------------------------------------------------------------------

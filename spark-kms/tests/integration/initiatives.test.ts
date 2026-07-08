@@ -45,7 +45,8 @@ describe("initiatives service", () => {
     );
     expect(res.initiativeId).toBeGreaterThan(0);
     expect(res.entryId).toBeGreaterThan(0);
-    expect(res.actionItemId).toBeGreaterThan(0);
+    expect(res.actionItemIds).toHaveLength(1);
+    expect(res.actionItemIds[0]).toBeGreaterThan(0);
 
     const detail = await getInitiativeDetail(res.initiativeId);
     expect(detail?.entries).toHaveLength(1);
@@ -54,12 +55,31 @@ describe("initiatives service", () => {
     expect(detail?.actionItems[0].sourceEntryId).toBe(res.entryId);
   });
 
+  it("splits a numbered follow-up into one action item per item", async () => {
+    const res = await createInitiative(
+      { ...base, followUp: "1. Call vendor 2. Book venue 3. Send recap" },
+      actor,
+      { createActionItem: true },
+    );
+    expect(res.actionItemIds).toHaveLength(3);
+
+    const detail = await getInitiativeDetail(res.initiativeId);
+    expect(detail?.actionItems.map((a) => a.description)).toEqual([
+      "Call vendor",
+      "Book venue",
+      "Send recap",
+    ]);
+    for (const a of detail!.actionItems) {
+      expect(a.sourceEntryId).toBe(res.entryId);
+    }
+  });
+
   it("does not create an action item when the flag is off", async () => {
     const res = await createInitiative(
       { ...base, followUp: "some follow up" },
       actor,
     );
-    expect(res.actionItemId).toBeNull();
+    expect(res.actionItemIds).toEqual([]);
     const ais = await db
       .select()
       .from(actionItems)

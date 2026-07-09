@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { diffWords } from "diff";
 import { PILLARS, CATEGORIES, ACTION_STATUSES } from "@/src/lib/enums";
 import { cn } from "@/lib/utils";
 
@@ -431,6 +432,46 @@ const ENTITY_LABEL: Record<string, string> = {
   action_item: "Action item",
 };
 
+/**
+ * GitHub-style word-level diff of a single field's old → new value. Removed
+ * words are red + struck through, added words are green; unchanged text stays
+ * plain, so you can see exactly what changed instead of re-reading the whole
+ * value. Falls back to an "added"/"removed" whole-value block when a side is
+ * empty (field first set, or cleared).
+ */
+function WordDiff({
+  oldValue,
+  newValue,
+}: {
+  oldValue: string | null;
+  newValue: string | null;
+}) {
+  const parts = diffWords(oldValue ?? "", newValue ?? "");
+  return (
+    <p className="whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-2 font-mono text-[13px] leading-relaxed">
+      {parts.map((part, i) =>
+        part.added ? (
+          <span
+            key={i}
+            className="rounded-sm bg-green-100 text-green-900 dark:bg-green-950/60 dark:text-green-300"
+          >
+            {part.value}
+          </span>
+        ) : part.removed ? (
+          <span
+            key={i}
+            className="rounded-sm bg-red-100 text-red-900 line-through dark:bg-red-950/60 dark:text-red-300"
+          >
+            {part.value}
+          </span>
+        ) : (
+          <span key={i}>{part.value}</span>
+        ),
+      )}
+    </p>
+  );
+}
+
 export function EditHistory({ log }: { log: EditHistoryEntry[] }) {
   if (log.length === 0) {
     return (
@@ -440,21 +481,26 @@ export function EditHistory({ log }: { log: EditHistoryEntry[] }) {
     );
   }
   return (
-    <ul className="flex flex-col divide-y rounded-lg border" data-testid="edit-history">
+    <ul className="flex flex-col gap-3" data-testid="edit-history">
       {log.map((e) => (
-        <li key={e.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-3 py-2 text-sm">
-          <Badge variant="outline" className="text-xs">
-            {ENTITY_LABEL[e.entity] ?? e.entity}
-          </Badge>
-          <span className="font-medium">{e.field}</span>
-          <span className="text-muted-foreground line-through">
-            {e.oldValue || "∅"}
-          </span>
-          <span aria-hidden>→</span>
-          <span>{e.newValue || "∅"}</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {e.editorName} · {new Date(e.editedAt).toISOString().slice(0, 16).replace("T", " ")}
-          </span>
+        <li
+          key={e.id}
+          className="flex flex-col gap-1.5 rounded-lg border p-3 text-sm"
+        >
+          <div className="flex flex-wrap items-baseline gap-2">
+            <Badge variant="outline" className="text-xs">
+              {ENTITY_LABEL[e.entity] ?? e.entity}
+            </Badge>
+            <span className="font-medium">{e.field}</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {e.editorName} ·{" "}
+              {new Date(e.editedAt)
+                .toISOString()
+                .slice(0, 16)
+                .replace("T", " ")}
+            </span>
+          </div>
+          <WordDiff oldValue={e.oldValue} newValue={e.newValue} />
         </li>
       ))}
     </ul>

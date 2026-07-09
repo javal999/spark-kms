@@ -15,15 +15,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { PILLARS, CATEGORIES, ACTION_STATUSES } from "@/src/lib/enums";
+import { cn } from "@/lib/utils";
+
+/**
+ * Long text that clamps to two lines with a Read more / Show less toggle, so a
+ * verbose action item never forces the page to scroll sideways. The toggle only
+ * appears when the text is long enough to actually be clipped.
+ */
+export function ClampText({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > 120;
+  return (
+    <div className={className}>
+      <p
+        className={cn(
+          "whitespace-pre-wrap break-words text-sm leading-relaxed",
+          long && !expanded && "line-clamp-2",
+        )}
+      >
+        {text}
+      </p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-0.5 text-xs font-medium text-primary hover:underline"
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
 
 async function patchJSON(url: string, body: unknown) {
   const res = await fetch(url, {
@@ -273,24 +303,11 @@ type ActionItemProps = {
 
 export function AdminActionItems({ items }: { items: ActionItemProps[] }) {
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Description</TableHead>
-            <TableHead>PIC</TableHead>
-            <TableHead>Due</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-16" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => (
-            <ActionItemRow key={item.id} item={item} />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <ul className="flex flex-col divide-y rounded-lg border" data-testid="action-items">
+      {items.map((item) => (
+        <ActionItemRow key={item.id} item={item} />
+      ))}
+    </ul>
   );
 }
 
@@ -314,51 +331,58 @@ function ActionItemRow({ item }: { item: ActionItemProps }) {
 
   if (editing) {
     return (
-      <TableRow>
-        <TableCell>
-          <Input value={description} onChange={(e) => setDescription(e.target.value)} />
-        </TableCell>
-        <TableCell>
-          <Input value={pic} onChange={(e) => setPic(e.target.value)} className="w-28" />
-        </TableCell>
-        <TableCell>
-          <Input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-36"
+      <li className="flex flex-col gap-3 p-3">
+        <Field label="Description">
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
           />
-        </TableCell>
-        <TableCell colSpan={2}>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={busy || !description.trim() || !pic.trim()}
-              onClick={() =>
-                change(
-                  { description, pic, dueDate: dueDate || undefined },
-                  "Action item updated",
-                )
-              }
-              data-testid={`save-ai-${item.id}`}
-            >
-              Save
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="PIC">
+            <Input value={pic} onChange={(e) => setPic(e.target.value)} />
+          </Field>
+          <Field label="Due date">
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            disabled={busy || !description.trim() || !pic.trim()}
+            onClick={() =>
+              change(
+                { description, pic, dueDate: dueDate || undefined },
+                "Action item updated",
+              )
+            }
+            data-testid={`save-ai-${item.id}`}
+          >
+            Save
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+        </div>
+      </li>
     );
   }
 
   return (
-    <TableRow>
-      <TableCell>{item.description}</TableCell>
-      <TableCell>{item.pic}</TableCell>
-      <TableCell>{item.dueDate ?? "—"}</TableCell>
-      <TableCell>
+    <li className="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:gap-4">
+      <ClampText text={item.description} className="min-w-0 flex-1" />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:shrink-0 sm:justify-end">
+        <span className="text-muted-foreground">
+          PIC: <span className="text-foreground">{item.pic}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Due: <span className="text-foreground">{item.dueDate ?? "—"}</span>
+        </span>
         <Select
           value={item.status}
           onValueChange={(v) => v && v !== item.status && change({ status: v })}
@@ -375,8 +399,6 @@ function ActionItemRow({ item }: { item: ActionItemProps }) {
             ))}
           </SelectContent>
         </Select>
-      </TableCell>
-      <TableCell>
         <Button
           variant="ghost"
           size="sm"
@@ -385,8 +407,8 @@ function ActionItemRow({ item }: { item: ActionItemProps }) {
         >
           Edit
         </Button>
-      </TableCell>
-    </TableRow>
+      </div>
+    </li>
   );
 }
 

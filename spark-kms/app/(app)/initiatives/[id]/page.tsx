@@ -12,16 +12,9 @@ import {
   EditEntry,
   AdminActionItems,
   EditHistory,
+  ClampText,
 } from "@/components/detail-edit";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export default async function InitiativeDetailPage({
   params,
@@ -221,30 +214,25 @@ export default async function InitiativeDetailPage({
             }))}
           />
         ) : (
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead>PIC</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {actionItems.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.description}</TableCell>
-                    <TableCell>{a.pic}</TableCell>
-                    <TableCell>{a.dueDate ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{a.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <ul className="flex flex-col divide-y rounded-lg border">
+            {actionItems.map((a) => (
+              <li
+                key={a.id}
+                className="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:gap-4"
+              >
+                <ClampText text={a.description} className="min-w-0 flex-1" />
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm sm:shrink-0 sm:justify-end">
+                  <span className="text-muted-foreground">
+                    PIC: <span className="text-foreground">{a.pic}</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Due: <span className="text-foreground">{a.dueDate ?? "—"}</span>
+                  </span>
+                  <Badge variant="outline">{a.status}</Badge>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

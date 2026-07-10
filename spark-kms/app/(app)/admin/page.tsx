@@ -8,6 +8,16 @@ import {
   ScoringPanel,
   ApiKeysPanel,
 } from "@/components/admin-console";
+import { AdminSectionNav, type AdminSection } from "@/components/admin-section-nav";
+
+const SECTIONS: AdminSection[] = [
+  { id: "nominations", label: "BP of the Week" },
+  { id: "scoring", label: "Weekly points" },
+  { id: "admins", label: "Admins" },
+  { id: "api-keys", label: "API keys" },
+  { id: "viewer-password", label: "Viewer password" },
+  { id: "template", label: "Template" },
+];
 
 export default async function AdminPage() {
   const [admins, nominations, apiKeys] = await Promise.all([
@@ -25,32 +35,44 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <NominationsPanel
-        nominations={nominations.map((n) => ({
-          entryId: n.entryId,
-          initiativeId: n.initiativeId,
-          title: n.title,
-          region: n.region,
-          segment: n.segment,
-          entryDate: n.entryDate,
-        }))}
-      />
-      <ScoringPanel />
-      <UsersPanel admins={admins} />
-      <ApiKeysPanel
-        apiKeys={apiKeys.map((k) => ({
-          id: k.id,
-          name: k.name,
-          prefix: k.prefix,
-          scope: k.scope,
-          createdAt: k.createdAt.toISOString(),
-          lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
-          revokedAt: k.revokedAt ? k.revokedAt.toISOString() : null,
-        }))}
-      />
-      <ViewerPasswordPanel />
+      <AdminSectionNav sections={SECTIONS} />
 
-      <div className="rounded-lg border bg-card p-4">
+      <section id="nominations" className="scroll-mt-28">
+        <NominationsPanel
+          nominations={nominations.map((n) => ({
+            entryId: n.entryId,
+            initiativeId: n.initiativeId,
+            title: n.title,
+            region: n.region,
+            segment: n.segment,
+            entryDate: n.entryDate,
+          }))}
+        />
+      </section>
+      <section id="scoring" className="scroll-mt-28">
+        <ScoringPanel />
+      </section>
+      <section id="admins" className="scroll-mt-28">
+        <UsersPanel admins={admins} />
+      </section>
+      <section id="api-keys" className="scroll-mt-28">
+        <ApiKeysPanel
+          apiKeys={apiKeys.map((k) => ({
+            id: k.id,
+            name: k.name,
+            prefix: k.prefix,
+            scope: k.scope,
+            createdAt: k.createdAt.toISOString(),
+            lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
+            revokedAt: k.revokedAt ? k.revokedAt.toISOString() : null,
+          }))}
+        />
+      </section>
+      <section id="viewer-password" className="scroll-mt-28">
+        <ViewerPasswordPanel />
+      </section>
+
+      <section id="template" className="scroll-mt-28 rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium">Bulk upload template</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           The versioned Excel template, generated from the current enum config.
@@ -60,7 +82,10 @@ export default async function AdminPage() {
             Download template
           </Button>
         </a>
-      </div>
+      </section>
+
+      {/* Lets the last sections scroll up under the sticky bars when jumped to. */}
+      <div aria-hidden className="h-[45vh]" />
     </div>
   );
 }

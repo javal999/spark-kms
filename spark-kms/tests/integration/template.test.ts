@@ -45,6 +45,17 @@ describe("template generator (3.1)", () => {
     expect(String(lists.getCell(2, 1).value)).toBe(REGIONS[0]);
   });
 
+  it("formats EVERY entry date cell as DD/MM/YYYY and says so in the hint", async () => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    const en = wb.getWorksheet("Entries")!;
+    // Not just the example (row 3) — a blank data row lower down too.
+    expect(en.getCell(3, 1).numFmt).toBe("dd/mm/yyyy");
+    expect(en.getCell(20, 1).numFmt).toBe("dd/mm/yyyy");
+    // The hint tells the user the format, with an example.
+    expect(String(en.getCell(2, 1).value)).toMatch(/DD\/MM\/YYYY/);
+  });
+
   it("round-trips: parsing the generated template yields the example row as valid", async () => {
     const { rows, templateVersion } = await parseWorkbook(buffer);
     expect(templateVersion).toBe("v1.1");

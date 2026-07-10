@@ -44,7 +44,7 @@ export const TEMPLATE_COLUMNS = [
 ] as const;
 
 const HINTS: Record<string, string> = {
-  Tanggal: "Entry date (DD/MM/YYYY). Required.",
+  Tanggal: "Entry date in DD/MM/YYYY, e.g. 31/07/2026. Required.",
   Region: "Dropdown. Required.",
   Segment: "Dropdown. Required.",
   PIC: "Person in charge. Required.",
@@ -182,8 +182,11 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
   dropdown(6, "Category");
   dropdown(11, "Stage");
   dropdown(12, "BPWeek");
-  // Tanggal: date validation.
+  // Tanggal: date validation + force DD/MM/YYYY display on EVERY entry cell (not
+  // just the example) so a user's date never renders in their Excel locale's
+  // default format.
   for (let r = 3; r <= lastRow; r++) {
+    en.getCell(r, 1).numFmt = "dd/mm/yyyy";
     en.getCell(r, 1).dataValidation = {
       type: "date",
       operator: "greaterThan",
@@ -191,7 +194,7 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
       formulae: [new Date("2000-01-01")],
       showErrorMessage: true,
       errorTitle: "Invalid date",
-      error: "Enter a valid date.",
+      error: "Enter a valid date (DD/MM/YYYY).",
     };
   }
 

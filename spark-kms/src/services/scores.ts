@@ -230,7 +230,8 @@ export async function areaScoreEvents(
   const rows = await db.execute(sql`
     SELECT se.id, se.stream::text AS stream, se.reason::text AS reason,
            se.points::int AS points, se.effective_date::text AS effective_date,
-           se.initiative_id AS initiative_id, i.title AS title, se.note
+           se.initiative_id AS initiative_id, i.title AS title,
+           i.pillar::text AS pillar, i.pic AS pic, se.note
     FROM score_events se
     LEFT JOIN initiatives i ON i.id = se.initiative_id
     WHERE se.region = ${region}::region AND se.segment = ${segment}::segment ${dateClause}
@@ -244,6 +245,9 @@ export async function areaScoreEvents(
     effectiveDate: String(r.effective_date),
     initiativeId: r.initiative_id ? Number(r.initiative_id) : null,
     title: r.title ? String(r.title) : null,
+    // v1.2 (item 18): surface which pillar and contributor (PIC) earned it.
+    pillar: r.pillar ? String(r.pillar) : null,
+    pic: r.pic ? String(r.pic) : null,
     note: r.note ? String(r.note) : null,
   }));
 }

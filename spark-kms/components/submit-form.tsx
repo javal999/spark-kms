@@ -50,6 +50,7 @@ type EntryState = {
   followUp: string;
   linkUrl: string;
   bpOfWeekNominated: boolean;
+  bestPresenter: boolean;
   createActionItem: boolean;
   aiPic: string;
   aiDueDate: string;
@@ -78,6 +79,7 @@ const emptyEntry: EntryState = {
   followUp: "",
   linkUrl: "",
   bpOfWeekNominated: false,
+  bestPresenter: false,
   createActionItem: false,
   aiPic: "",
   aiDueDate: "",
@@ -139,6 +141,7 @@ export function SubmitForm() {
       followUp: entry.followUp || undefined,
       linkUrl: entry.linkUrl || undefined,
       bpOfWeekNominated: entry.bpOfWeekNominated,
+      bestPresenter: entry.bestPresenter,
       createActionItem: entry.createActionItem && !!entry.followUp.trim(),
       actionItem:
         entry.createActionItem && entry.followUp.trim()
@@ -538,15 +541,26 @@ function EntryFields({
             placeholder="https://…"
           />
         </Field>
-        <label className="mt-6 flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={entry.bpOfWeekNominated}
-            onCheckedChange={(c) => setE({ bpOfWeekNominated: c === true })}
-            data-testid="bp-nominate"
-          />
-          Nominate for Best Practice of the Week
-          <Badge variant="outline">nomination only</Badge>
-        </label>
+        <div className="mt-6 flex flex-col gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={entry.bpOfWeekNominated}
+              onCheckedChange={(c) => setE({ bpOfWeekNominated: c === true })}
+              data-testid="bp-nominate"
+            />
+            Best Practice of the Week
+            <Badge variant="outline">+2 auto</Badge>
+          </label>
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={entry.bestPresenter}
+              onCheckedChange={(c) => setE({ bestPresenter: c === true })}
+              data-testid="best-presenter"
+            />
+            Best Presenter of the Week
+            <Badge variant="outline">+2 auto</Badge>
+          </label>
+        </div>
       </div>
     </div>
   );

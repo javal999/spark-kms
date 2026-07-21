@@ -89,6 +89,8 @@ export type TopInitiative = {
   title: string;
   region: string;
   segment: string;
+  pic: string; // v1.2 (item 11)
+  stage: string; // v1.2 (item 11)
   points: number;
 };
 
@@ -104,11 +106,12 @@ export async function topInitiatives(
 
   const rows = await db.execute(sql`
     SELECT i.id, i.title, i.region::text AS region, i.segment::text AS segment,
+           i.pic, i.stage::text AS stage,
            coalesce(sum(se.points), 0)::int AS points
     FROM initiatives i
     JOIN score_events se ON se.initiative_id = i.id
     WHERE true ${dateClause}
-    GROUP BY i.id, i.title, i.region, i.segment
+    GROUP BY i.id, i.title, i.region, i.segment, i.pic, i.stage
     HAVING coalesce(sum(se.points), 0) > 0
     ORDER BY points DESC, i.id ASC
     LIMIT ${limit}
@@ -119,6 +122,8 @@ export async function topInitiatives(
     title: String(r.title),
     region: String(r.region),
     segment: String(r.segment),
+    pic: String(r.pic),
+    stage: String(r.stage),
     points: Number(r.points),
   }));
 }

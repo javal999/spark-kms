@@ -12,6 +12,7 @@ import type {
 } from "@/src/validation/entry";
 import { award } from "@/src/services/scoring";
 import { splitFollowUp } from "@/src/lib/follow-up";
+import { upsertByName } from "@/src/services/people";
 
 /**
  * Initiative + entry CRUD (Phase 1). NOTE: scoring is Phase 2 — nothing here
@@ -51,6 +52,9 @@ type CreateOpts = {
   createActionItem?: boolean;
   actionItem?: ActionItemDraft;
   uploadBatchId?: number;
+  // v1.2 (D15): PIC to assign to action items when no explicit draft PIC is
+  // given (e.g. bulk upload, so items don't default to "Unassigned").
+  actionItemPic?: string;
 };
 
 /** Core create, runnable inside a caller's transaction (e.g. bulk commit). */
@@ -75,6 +79,9 @@ export async function createInitiativeInTx(
         createdBy: actorId,
       })
       .returning({ id: initiatives.id });
+
+    // v1.2 (D9): add the PIC to the people directory (find-or-create).
+    await upsertByName(input.pic, actorId, tx);
 
     const [entry] = await tx
       .insert(entries)
@@ -278,7 +285,11 @@ async function maybeCreateActionItems(
   sourceEntryId: number,
   actorId: number,
   followUp: string | undefined,
-  opts: { createActionItem?: boolean; actionItem?: ActionItemDraft },
+  opts: {
+    createActionItem?: boolean;
+    actionItem?: ActionItemDraft;
+    actionItemPic?: string;
+  },
 ): Promise<number[]> {
   if (!opts.createActionItem) return [];
   const draft = opts.actionItem;
@@ -294,7 +305,7 @@ async function maybeCreateActionItems(
       .values({
         initiativeId,
         description,
-        pic: draft?.pic ?? "Unassigned",
+        pic: draft?.pic ?? opts.actionItemPic ?? "Unassigned",
         dueDate: draft?.dueDate,
         sourceEntryId,
         createdBy: actorId,

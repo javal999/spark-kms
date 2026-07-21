@@ -8,6 +8,7 @@ import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums"
 import { TEMPLATE_COLUMNS, getTemplateVersion } from "@/src/services/template";
 import { findDuplicateCandidates, type DuplicateCandidate } from "@/src/services/duplicates";
 import { createInitiativeInTx, appendEntryInTx } from "@/src/services/initiatives";
+import { upsertByName } from "@/src/services/people";
 
 /**
  * Excel upload parsing + normalization (REQ-U8) feeding the SHARED validation
@@ -415,7 +416,14 @@ export async function commitUpload(
         bestPresenter: data.bestPresenter,
         linkUrl: data.linkUrl,
       };
-      const withActionItem = { createActionItem: !!data.followUp, uploadBatchId: batch.id };
+      const withActionItem = {
+        createActionItem: !!data.followUp,
+        uploadBatchId: batch.id,
+        actionItemPic: data.pic, // v1.2 (D15): items inherit the row PIC
+      };
+      // v1.2 (D9): every uploaded PIC joins the people directory. (createInitiative
+      // also upserts, so this covers append rows too — idempotent.)
+      await upsertByName(data.pic, actorId, tx);
 
       if (choice.action === "append" && choice.initiativeId) {
         await appendEntryInTx(tx, choice.initiativeId, entryInput, actorId, withActionItem);

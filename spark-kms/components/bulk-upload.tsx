@@ -12,6 +12,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   failureMessage,
@@ -48,12 +56,17 @@ export function BulkUpload() {
   const [choices, setChoices] = useState<Record<number, Choice>>({});
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ created: number; appended: number } | null>(null);
+  // v1.2 (item 8): acknowledgment gate before committing a batch with duplicates.
+  const [ackOpen, setAckOpen] = useState(false);
+  const [ack, setAck] = useState(false);
 
   function reset() {
     setFile(null);
     setPreview(null);
     setChoices({});
     setResult(null);
+    setAckOpen(false);
+    setAck(false);
   }
 
   async function onFile(f: File) {
@@ -98,8 +111,50 @@ export function BulkUpload() {
   const canCommit =
     !!preview && errorRows.length === 0 && unresolved.length === 0 && !busy;
 
+  // v1.2 (item 8): batch-resolve every duplicate at once. `pick` returns the
+  // choice for a row, or undefined to clear it.
+  function setAllDuplicates(pick: (r: PreviewRow) => Choice | undefined) {
+    setChoices((prev) => {
+      const next = { ...prev };
+      for (const r of duplicateRows) {
+        const c = pick(r);
+        if (c) next[r.rowNumber] = c;
+        else delete next[r.rowNumber];
+      }
+      return next;
+    });
+  }
+  const appendAllClosest = () =>
+    setAllDuplicates((r) =>
+      r.candidates[0]
+        ? { action: "append", initiativeId: r.candidates[0].id }
+        : { action: "new" },
+    );
+  const createAllAsNew = () => setAllDuplicates(() => ({ action: "new" }));
+  const clearDuplicateChoices = () => setAllDuplicates(() => undefined);
+
+  // How each duplicate row is currently resolved (for the ack summary).
+  const dupAppend = duplicateRows.filter(
+    (r) => choices[r.rowNumber]?.action === "append",
+  ).length;
+  const dupNew = duplicateRows.filter(
+    (r) => choices[r.rowNumber]?.action === "new",
+  ).length;
+
+  // Duplicates demand an explicit acknowledgment; a clean batch commits directly.
+  function requestCommit() {
+    if (!canCommit) return;
+    if (duplicateRows.length > 0) {
+      setAck(false);
+      setAckOpen(true);
+    } else {
+      void commit();
+    }
+  }
+
   async function commit() {
     if (!file || !preview) return;
+    setAckOpen(false);
     setBusy(true);
     try {
       const fd = new FormData();
@@ -200,6 +255,40 @@ export function BulkUpload() {
               </div>
             )}
 
+            {duplicateRows.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+                <span className="text-sm text-amber-900">
+                  {duplicateRows.length} possible duplicate
+                  {duplicateRows.length === 1 ? "" : "s"} — resolve individually
+                  or in bulk:
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={appendAllClosest}
+                  data-testid="dup-append-all"
+                >
+                  Append each to closest match
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={createAllAsNew}
+                  data-testid="dup-all-new"
+                >
+                  Create all as new
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDuplicateChoices}
+                  data-testid="dup-clear"
+                >
+                  Reset choices
+                </Button>
+              </div>
+            )}
+
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
@@ -276,7 +365,11 @@ export function BulkUpload() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button onClick={commit} disabled={!canCommit} data-testid="commit-upload">
+              <Button
+                onClick={requestCommit}
+                disabled={!canCommit}
+                data-testid="commit-upload"
+              >
                 {busy ? "Importing…" : "Commit import"}
               </Button>
               {unresolved.length > 0 && (
@@ -288,6 +381,52 @@ export function BulkUpload() {
           </>
         )}
       </CardContent>
+
+      {/* v1.2 (item 8): mandatory acknowledgment before importing duplicates. */}
+      <Dialog open={ackOpen} onOpenChange={setAckOpen}>
+        <DialogContent data-testid="dup-ack-dialog">
+          <DialogHeader>
+            <DialogTitle>Confirm duplicate resolution</DialogTitle>
+            <DialogDescription>
+              This batch has {duplicateRows.length} row
+              {duplicateRows.length === 1 ? "" : "s"} that look like existing
+              initiatives. Appends add an entry to an existing topic; this cannot
+              be undone in bulk.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <div>
+              <span className="font-medium">{dupAppend}</span> appended to an
+              existing initiative
+            </div>
+            <div>
+              <span className="font-medium">{dupNew}</span> created as a new topic
+            </div>
+          </div>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+              data-testid="dup-ack-checkbox"
+              className="mt-0.5"
+            />
+            I&apos;ve reviewed how each duplicate row is resolved.
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAckOpen(false)}>
+              Back
+            </Button>
+            <Button
+              onClick={commit}
+              disabled={!ack || busy}
+              data-testid="dup-ack-confirm"
+            >
+              {busy ? "Importing…" : "Confirm import"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

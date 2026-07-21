@@ -23,13 +23,12 @@ import {
  *
  * The fixture is IMMUTABLE: if a scoring change breaks this, the change is wrong.
  *
- * TODO(v1.2 re-baseline, plan B4/REQ-S7): the v1.2 scoring model caps bp_of_week
- * at 1/Area/week, which changes the expected per-area totals (an Area/week with
- * multiple confirmed flags now scores +2 once, not +2 per flag). This describe is
- * QUARANTINED (skipped) until EXPECTED_BP_BY_AREA/REGION/TOTAL are recomputed for
- * the capped model. Do not delete — re-baseline it.
+ * v1.2 re-baseline (plan B4/REQ-S7): bp_of_week now caps at 1/Area/week, so an
+ * Area/week with multiple confirmed flags scores +2 once (not +2 per flag). The
+ * EXPECTED_* maps were recomputed by hand for the capped model (see the fixture
+ * comment) — 20 points total, not 28. Re-baselined and un-quarantined.
  */
-describe.skip("GOLDEN: replaying the 45 real entries reproduces the file's per-area BP scores", () => {
+describe("GOLDEN: replaying the 45 real entries reproduces the file's per-area BP scores", () => {
   beforeAll(async () => {
     await resetAndSeed();
     const actor = await getSuperAdminId();
@@ -63,7 +62,7 @@ describe.skip("GOLDEN: replaying the 45 real entries reproduces the file's per-a
     );
   });
 
-  it("total bp_of_week points = 28 (2 × 14 flags)", async () => {
+  it("total bp_of_week points = 20 (capped 1/Area/week over 14 flags)", async () => {
     const [{ total }] = await db
       .select({ total: sql<number>`coalesce(sum(points),0)::int` })
       .from(sql`score_events`)

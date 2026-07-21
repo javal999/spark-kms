@@ -85,6 +85,7 @@ export async function createInitiativeInTx(
         detail: input.detail,
         followUp: input.followUp,
         bpOfWeekNominated: input.bpOfWeekNominated,
+        bestPresenter: input.bestPresenter,
         linkUrl: input.linkUrl,
         uploadBatchId: opts.uploadBatchId,
         createdBy: actorId,
@@ -127,6 +128,18 @@ export async function createInitiativeInTx(
       },
       tx,
     );
+    // v1.2 (D14): the two weekly awards auto-score +2 at submit (1/Area/week cap
+    // enforced inside award()); a ticked box that hits the cap is silently skipped.
+    await awardWeeklyFlags(tx, {
+      bpOfWeek: input.bpOfWeekNominated,
+      bestPresenter: input.bestPresenter,
+      initiativeId: ini.id,
+      region: input.region,
+      segment: input.segment,
+      effectiveDate: input.entryDate,
+      actorId,
+      refId: entry.id,
+    });
 
     return { initiativeId: ini.id, entryId: entry.id, actionItemIds };
   }
@@ -179,6 +192,7 @@ export async function appendEntryInTx(
         detail: input.detail,
         followUp: input.followUp,
         bpOfWeekNominated: input.bpOfWeekNominated,
+        bestPresenter: input.bestPresenter,
         linkUrl: input.linkUrl,
         uploadBatchId: opts.uploadBatchId,
         createdBy: actorId,
@@ -208,9 +222,48 @@ export async function appendEntryInTx(
       },
       tx,
     );
+    await awardWeeklyFlags(tx, {
+      bpOfWeek: input.bpOfWeekNominated,
+      bestPresenter: input.bestPresenter,
+      initiativeId,
+      region: owner.region,
+      segment: owner.segment,
+      effectiveDate: input.entryDate,
+      actorId,
+      refId: entry.id,
+    });
 
     return { entryId: entry.id, actionItemIds };
   }
+}
+
+/**
+ * v1.2 (D14): award the two weekly +2 flags at submit. Each is capped 1/Area/week
+ * inside award(); a ticked box that hits the cap is silently skipped (no error).
+ */
+async function awardWeeklyFlags(
+  tx: Tx,
+  a: {
+    bpOfWeek: boolean;
+    bestPresenter: boolean;
+    initiativeId: number;
+    region: NewInitiativeInput["region"];
+    segment: NewInitiativeInput["segment"];
+    effectiveDate: string;
+    actorId: number;
+    refId: number;
+  },
+): Promise<void> {
+  const area = {
+    initiativeId: a.initiativeId,
+    region: a.region,
+    segment: a.segment,
+    effectiveDate: a.effectiveDate,
+    actorId: a.actorId,
+    refId: a.refId,
+  };
+  if (a.bpOfWeek) await award({ reason: "bp_of_week", ...area }, tx);
+  if (a.bestPresenter) await award({ reason: "best_presenter", ...area }, tx);
 }
 
 export type ActionItemDraft = {

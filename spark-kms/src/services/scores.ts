@@ -18,10 +18,8 @@ export type LeaderboardRow = {
   rank: number;
   region: string;
   segment: string;
-  presenter: number;
   best_practice: number;
-  cee: number;
-  cee_best: number;
+  best_presenter: number; // v1.2: the `presenter` stream relabeled
   total: number;
 };
 
@@ -47,28 +45,22 @@ export async function areaLeaderboard(weekKey?: string): Promise<LeaderboardRow[
       GROUP BY se.region, se.segment, se.stream
     )
     SELECT a.region, a.segment,
-      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'presenter'), 0)::int AS presenter,
       coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'best_practice'), 0)::int AS best_practice,
-      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'cee'), 0)::int AS cee,
-      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'cee_best'), 0)::int AS cee_best
+      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'presenter'), 0)::int AS best_presenter
     FROM areas a
     LEFT JOIN agg ON agg.region = a.region AND agg.segment = a.segment
     GROUP BY a.region, a.segment
   `);
 
   const list = (rows as unknown as Array<Record<string, unknown>>).map((r) => {
-    const presenter = Number(r.presenter);
     const best_practice = Number(r.best_practice);
-    const cee = Number(r.cee);
-    const cee_best = Number(r.cee_best);
+    const best_presenter = Number(r.best_presenter);
     return {
       region: String(r.region),
       segment: String(r.segment),
-      presenter,
       best_practice,
-      cee,
-      cee_best,
-      total: presenter + best_practice + cee + cee_best,
+      best_presenter,
+      total: best_practice + best_presenter,
     };
   });
 
@@ -133,9 +125,7 @@ export async function topInitiatives(
 
 export type StreamTotals = {
   best_practice: number;
-  presenter: number;
-  cee: number;
-  cee_best: number;
+  best_presenter: number; // v1.2: the `presenter` stream relabeled
   total: number;
 };
 
@@ -148,16 +138,14 @@ export async function initiativeStreamTotals(
     FROM score_events WHERE initiative_id = ${initiativeId}
     GROUP BY stream
   `);
-  const t: StreamTotals = {
-    best_practice: 0,
-    presenter: 0,
-    cee: 0,
-    cee_best: 0,
-    total: 0,
-  };
+  const t: StreamTotals = { best_practice: 0, best_presenter: 0, total: 0 };
   for (const r of rows as unknown as Array<{ stream: string; pts: number }>) {
     const v = Number(r.pts);
-    (t as unknown as Record<string, number>)[r.stream] = v;
+    // Only the two live streams count; retired cee/cee_best rows (reversed on
+    // migration) are ignored here.
+    if (r.stream === "best_practice") t.best_practice += v;
+    else if (r.stream === "presenter") t.best_presenter += v;
+    else continue;
     t.total += v;
   }
   return t;

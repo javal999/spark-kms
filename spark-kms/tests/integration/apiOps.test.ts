@@ -77,14 +77,15 @@ describe("apiOps (Gate 5)", () => {
     expect(ini.createdBy).toBe(owner);
   });
 
-  it("a BP-of-week nomination via API scores nothing (confirmation-only)", async () => {
+  it("a ticked BP-of-week via API auto-awards +2 immediately (v1.2, D14)", async () => {
     const res = await opCreateInitiative(writeCtx(), {
       ...payload,
       bpOfWeekNominated: true,
       force_new: true,
     });
     const totals = await initiativeStreamTotals(res.initiativeId);
-    expect(totals.total).toBe(2); // +1 new +1 entry only; no +2 bp_of_week
+    expect(totals.best_practice).toBe(4); // +1 new +1 entry +2 bp_of_week
+    expect(totals.total).toBe(4);
   });
 
   it("honors the 409 duplicate contract incl. force_new and append_to", async () => {

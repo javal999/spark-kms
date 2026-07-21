@@ -75,8 +75,8 @@ function parseCellDate(value: ExcelJS.CellValue): string | undefined {
   return s; // let the schema reject an unparseable value
 }
 
-function parseBool(raw: string): boolean {
-  const t = raw.trim().toLowerCase();
+function parseBool(raw: string | undefined | null): boolean {
+  const t = (raw ?? "").trim().toLowerCase();
   return t === "true" || t === "1" || t === "yes";
 }
 
@@ -166,7 +166,10 @@ function buildRow(
     detail: raw["Progress"],
     followUp: raw["Need Follow Up Action/Unlocking"] || undefined,
     stage: stage.value,
-    bpOfWeekNominated: parseBool(raw["Best Practices of The Week"]),
+    bpOfWeekNominated: parseBool(
+      raw["Best Practice of the Week"] ?? raw["Best Practices of The Week"],
+    ),
+    bestPresenter: parseBool(raw["Best Presenter of the Week"]),
     linkUrl: raw["Link File"] || undefined,
   };
 
@@ -409,6 +412,7 @@ export async function commitUpload(
         detail: data.detail,
         followUp: data.followUp,
         bpOfWeekNominated: data.bpOfWeekNominated,
+        bestPresenter: data.bestPresenter,
         linkUrl: data.linkUrl,
       };
       const withActionItem = { createActionItem: !!data.followUp, uploadBatchId: batch.id };

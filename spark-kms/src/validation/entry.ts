@@ -58,6 +58,8 @@ export const entryInputSchema = z.object({
   detail: requiredText,
   followUp: optionalText,
   bpOfWeekNominated: z.boolean().default(false),
+  // v1.2 (D12): "Best Presenter of the Week" — auto-awards +2 when true.
+  bestPresenter: z.boolean().default(false),
   linkUrl: optionalText,
 });
 

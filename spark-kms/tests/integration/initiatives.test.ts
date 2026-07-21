@@ -24,6 +24,7 @@ const base: NewInitiativeInput = {
   category: "Best Practice",
   detail: "Ran a makeover popup, strong footfall",
   bpOfWeekNominated: false,
+  bestPresenter: false,
 };
 
 let actor: number;
@@ -96,6 +97,7 @@ describe("initiatives service", () => {
         category: "Unlocking",
         detail: "blocker found",
         bpOfWeekNominated: false,
+        bestPresenter: false,
       },
       actor,
     );
@@ -114,6 +116,7 @@ describe("initiatives service", () => {
           category: "Unlocking",
           detail: "x",
           bpOfWeekNominated: false,
+          bestPresenter: false,
         },
         actor,
       ),

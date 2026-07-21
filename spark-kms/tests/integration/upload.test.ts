@@ -132,7 +132,7 @@ describe("idempotency of scoring — form vs upload produce identical points", (
   it("an initiative created by upload scores the same as one created by form", async () => {
     // Via form service.
     await createInitiative(
-      { title: "Form Topic", region: "EJBN", segment: "Halal PC", pillar: "Social Buzz", stage: "Idea", pic: "P", entryDate: "2026-07-01", category: "Best Practice", detail: "d", bpOfWeekNominated: false },
+      { title: "Form Topic", region: "EJBN", segment: "Halal PC", pillar: "Social Buzz", stage: "Idea", pic: "P", entryDate: "2026-07-01", category: "Best Practice", detail: "d", bpOfWeekNominated: false, bestPresenter: false },
       actor,
     );
     // Via upload.

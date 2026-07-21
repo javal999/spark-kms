@@ -103,13 +103,11 @@ export default async function InitiativeDetailPage({
       </div>
 
       {/* Points panel — per-stream SUM for this initiative (never stored). */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <section className="grid grid-cols-3 gap-3">
         {(
           [
             ["Best Practice", points.best_practice],
-            ["Presenter", points.presenter],
-            ["CEE", points.cee],
-            ["CEE Best", points.cee_best],
+            ["Best Presenter", points.best_presenter],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="rounded-lg border bg-card px-4 py-3">

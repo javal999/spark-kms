@@ -30,6 +30,7 @@ import {
   CATEGORIES,
   STAGES,
 } from "@/src/lib/enums";
+import { PersonPicker } from "@/components/person-picker";
 
 type Candidate = {
   id: number;
@@ -50,6 +51,7 @@ type EntryState = {
   followUp: string;
   linkUrl: string;
   bpOfWeekNominated: boolean;
+  bestPresenter: boolean;
   createActionItem: boolean;
   aiPic: string;
   aiDueDate: string;
@@ -78,6 +80,7 @@ const emptyEntry: EntryState = {
   followUp: "",
   linkUrl: "",
   bpOfWeekNominated: false,
+  bestPresenter: false,
   createActionItem: false,
   aiPic: "",
   aiDueDate: "",
@@ -139,6 +142,7 @@ export function SubmitForm() {
       followUp: entry.followUp || undefined,
       linkUrl: entry.linkUrl || undefined,
       bpOfWeekNominated: entry.bpOfWeekNominated,
+      bestPresenter: entry.bestPresenter,
       createActionItem: entry.createActionItem && !!entry.followUp.trim(),
       actionItem:
         entry.createActionItem && entry.followUp.trim()
@@ -333,11 +337,7 @@ export function SubmitForm() {
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="PIC (field person)">
-                <Input
-                  value={pic}
-                  onChange={(e) => setPic(e.target.value)}
-                  data-testid="pic"
-                />
+                <PersonPicker value={pic} onChange={setPic} testid="pic" />
               </Field>
               <Field label="Pillar">
                 <EnumSelect
@@ -512,10 +512,10 @@ function EntryFields({
           {entry.createActionItem && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="Action PIC">
-                <Input
+                <PersonPicker
                   value={entry.aiPic}
+                  onChange={(v) => setE({ aiPic: v })}
                   placeholder={pic || "Unassigned"}
-                  onChange={(e) => setE({ aiPic: e.target.value })}
                 />
               </Field>
               <Field label="Due date (optional)">
@@ -538,15 +538,26 @@ function EntryFields({
             placeholder="https://…"
           />
         </Field>
-        <label className="mt-6 flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={entry.bpOfWeekNominated}
-            onCheckedChange={(c) => setE({ bpOfWeekNominated: c === true })}
-            data-testid="bp-nominate"
-          />
-          Nominate for Best Practice of the Week
-          <Badge variant="outline">nomination only</Badge>
-        </label>
+        <div className="mt-6 flex flex-col gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={entry.bpOfWeekNominated}
+              onCheckedChange={(c) => setE({ bpOfWeekNominated: c === true })}
+              data-testid="bp-nominate"
+            />
+            Best Practice of the Week
+            <Badge variant="outline">+2 auto</Badge>
+          </label>
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={entry.bestPresenter}
+              onCheckedChange={(c) => setE({ bestPresenter: c === true })}
+              data-testid="best-presenter"
+            />
+            Best Presenter of the Week
+            <Badge variant="outline">+2 auto</Badge>
+          </label>
+        </div>
       </div>
     </div>
   );

@@ -17,10 +17,8 @@ const first = (v: string | string[] | undefined) =>
   Array.isArray(v) ? v[0] : v;
 
 const STREAMS = [
-  { key: "presenter", label: "Presenter" },
   { key: "best_practice", label: "Best Practice" },
-  { key: "cee", label: "CEE" },
-  { key: "cee_best", label: "CEE Best" },
+  { key: "best_presenter", label: "Best Presenter" },
 ] as const;
 
 export default async function LeaderboardPage({

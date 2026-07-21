@@ -97,36 +97,30 @@ describe("best_practice stream (§5.1)", () => {
   });
 });
 
-describe("manual streams (§5.2)", () => {
-  it("presentation awards +2, capped to 1 per area per week", async () => {
-    const first = await award({ reason: "presentation", ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    expect(first).toMatchObject({ status: "awarded", points: 2, stream: "presenter" });
-    // Same ISO week (2026-06-29..07-05) → capped.
-    const dup = await award({ reason: "presentation", ...AREA, effectiveDate: "2026-07-03", actorId: actor });
+describe("weekly awards — bp_of_week & best_presenter (§5.1/5.2, v1.2)", () => {
+  it("bp_of_week awards +2 best_practice, capped 1 per area per week", async () => {
+    const first = await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
+    expect(first).toMatchObject({ status: "awarded", points: 2, stream: "best_practice" });
+    // Same ISO week, same area (different initiative) → capped.
+    const dup = await award({ reason: "bp_of_week", initiativeId: initB, ...AREA, effectiveDate: "2026-07-03", actorId: actor });
     expect(dup).toEqual({ status: "skipped", reason: "area-week-cap" });
   });
 
-  it("presentation cap resets the following week and is per-area", async () => {
-    await award({ reason: "presentation", ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    // Next week → allowed.
-    const nextWeek = await award({ reason: "presentation", ...AREA, effectiveDate: "2026-07-08", actorId: actor });
-    expect(nextWeek.status).toBe("awarded");
-    // Same week, different area → allowed.
-    const otherArea = await award({
-      reason: "presentation",
-      region: "CJWJ",
-      segment: "Halal PC",
-      effectiveDate: "2026-07-01",
-      actorId: actor,
-    });
-    expect(otherArea.status).toBe("awarded");
+  it("best_presenter awards +2 to the presenter (Best Presenter) stream, capped 1/area/week", async () => {
+    const first = await award({ reason: "best_presenter", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
+    expect(first).toMatchObject({ status: "awarded", points: 2, stream: "presenter" });
+    const dup = await award({ reason: "best_presenter", initiativeId: initB, ...AREA, effectiveDate: "2026-07-02", actorId: actor });
+    expect(dup).toEqual({ status: "skipped", reason: "area-week-cap" });
   });
 
-  it("cee awards +1 and cee_best awards +2 (area-level, no initiative)", async () => {
-    const cee = await award({ reason: "cee_participation", ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    expect(cee).toMatchObject({ status: "awarded", points: 1, stream: "cee" });
-    const best = await award({ reason: "cee_best", ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    expect(best).toMatchObject({ status: "awarded", points: 2, stream: "cee_best" });
+  it("the two weekly caps are independent, reset next week, and are per-area", async () => {
+    await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
+    // best_presenter same area/week still allowed (different reason).
+    expect((await award({ reason: "best_presenter", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor })).status).toBe("awarded");
+    // bp_of_week next week → allowed.
+    expect((await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-08", actorId: actor })).status).toBe("awarded");
+    // same week, different area → allowed.
+    expect((await award({ reason: "bp_of_week", initiativeId: initA, region: "CJWJ", segment: "Halal PC", effectiveDate: "2026-07-01", actorId: actor })).status).toBe("awarded");
   });
 
   it("adjustment writes the given points/stream and requires a note", async () => {

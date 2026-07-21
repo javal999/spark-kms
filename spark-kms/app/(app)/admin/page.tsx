@@ -1,29 +1,30 @@
 import { Button } from "@/components/ui/button";
-import { listAdmins, listPendingNominations } from "@/src/services/admin";
+import { listAdmins } from "@/src/services/admin";
 import { listApiKeys } from "@/src/services/apiKeys";
+import { listPeople } from "@/src/services/people";
 import {
   UsersPanel,
+  PeoplePanel,
   ViewerPasswordPanel,
-  NominationsPanel,
   ScoringPanel,
   ApiKeysPanel,
 } from "@/components/admin-console";
 import { AdminSectionNav, type AdminSection } from "@/components/admin-section-nav";
 
 const SECTIONS: AdminSection[] = [
-  { id: "nominations", label: "BP of the Week" },
-  { id: "scoring", label: "Weekly points" },
+  { id: "scoring", label: "Adjustments" },
   { id: "admins", label: "Admins" },
+  { id: "people", label: "PIC directory" },
   { id: "api-keys", label: "API keys" },
   { id: "viewer-password", label: "Viewer password" },
   { id: "template", label: "Template" },
 ];
 
 export default async function AdminPage() {
-  const [admins, nominations, apiKeys] = await Promise.all([
+  const [admins, apiKeys, people] = await Promise.all([
     listAdmins(),
-    listPendingNominations(),
     listApiKeys(),
+    listPeople(),
   ]);
 
   return (
@@ -37,23 +38,14 @@ export default async function AdminPage() {
 
       <AdminSectionNav sections={SECTIONS} />
 
-      <section id="nominations" className="scroll-mt-28">
-        <NominationsPanel
-          nominations={nominations.map((n) => ({
-            entryId: n.entryId,
-            initiativeId: n.initiativeId,
-            title: n.title,
-            region: n.region,
-            segment: n.segment,
-            entryDate: n.entryDate,
-          }))}
-        />
-      </section>
       <section id="scoring" className="scroll-mt-28">
         <ScoringPanel />
       </section>
       <section id="admins" className="scroll-mt-28">
         <UsersPanel admins={admins} />
+      </section>
+      <section id="people" className="scroll-mt-28">
+        <PeoplePanel people={people} />
       </section>
       <section id="api-keys" className="scroll-mt-28">
         <ApiKeysPanel

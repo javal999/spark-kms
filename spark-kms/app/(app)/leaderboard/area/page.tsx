@@ -18,12 +18,14 @@ const first = (v: string | string[] | undefined) =>
 const REASON_LABEL: Record<string, string> = {
   new_initiative: "New initiative",
   entry: "Entry",
-  bp_of_week: "BP of the Week",
-  presentation: "Presentation",
-  cee_participation: "CEE",
-  cee_best: "CEE Best",
+  bp_of_week: "Best Practice of the Week",
+  best_presenter: "Best Presenter of the Week",
   adjustment: "Adjustment",
   reversal: "Reversal",
+  // Retired v1.2 (reversed on migration) — labelled for historical rows.
+  presentation: "Presentation (retired)",
+  cee_participation: "CEE (retired)",
+  cee_best: "CEE Best (retired)",
 };
 
 export default async function AreaEventsPage({
@@ -63,13 +65,15 @@ export default async function AreaEventsPage({
               <TableHead>Date</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead>Initiative</TableHead>
+              <TableHead>Pillar</TableHead>
+              <TableHead>Contributor</TableHead>
               <TableHead className="text-right">Points</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {events.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                   No score events for this area.
                 </TableCell>
               </TableRow>
@@ -98,6 +102,10 @@ export default async function AreaEventsPage({
                     </span>
                   )}
                 </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {e.pillar ?? "—"}
+                </TableCell>
+                <TableCell>{e.pic ?? "—"}</TableCell>
                 <TableCell
                   className={
                     "text-right font-semibold tabular-nums " +

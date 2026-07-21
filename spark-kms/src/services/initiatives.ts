@@ -12,6 +12,7 @@ import type {
 } from "@/src/validation/entry";
 import { award } from "@/src/services/scoring";
 import { splitFollowUp } from "@/src/lib/follow-up";
+import { upsertByName } from "@/src/services/people";
 
 /**
  * Initiative + entry CRUD (Phase 1). NOTE: scoring is Phase 2 — nothing here
@@ -51,6 +52,9 @@ type CreateOpts = {
   createActionItem?: boolean;
   actionItem?: ActionItemDraft;
   uploadBatchId?: number;
+  // v1.2 (D15): PIC to assign to action items when no explicit draft PIC is
+  // given (e.g. bulk upload, so items don't default to "Unassigned").
+  actionItemPic?: string;
 };
 
 /** Core create, runnable inside a caller's transaction (e.g. bulk commit). */
@@ -76,6 +80,9 @@ export async function createInitiativeInTx(
       })
       .returning({ id: initiatives.id });
 
+    // v1.2 (D9): add the PIC to the people directory (find-or-create).
+    await upsertByName(input.pic, actorId, tx);
+
     const [entry] = await tx
       .insert(entries)
       .values({
@@ -85,6 +92,7 @@ export async function createInitiativeInTx(
         detail: input.detail,
         followUp: input.followUp,
         bpOfWeekNominated: input.bpOfWeekNominated,
+        bestPresenter: input.bestPresenter,
         linkUrl: input.linkUrl,
         uploadBatchId: opts.uploadBatchId,
         createdBy: actorId,
@@ -127,6 +135,18 @@ export async function createInitiativeInTx(
       },
       tx,
     );
+    // v1.2 (D14): the two weekly awards auto-score +2 at submit (1/Area/week cap
+    // enforced inside award()); a ticked box that hits the cap is silently skipped.
+    await awardWeeklyFlags(tx, {
+      bpOfWeek: input.bpOfWeekNominated,
+      bestPresenter: input.bestPresenter,
+      initiativeId: ini.id,
+      region: input.region,
+      segment: input.segment,
+      effectiveDate: input.entryDate,
+      actorId,
+      refId: entry.id,
+    });
 
     return { initiativeId: ini.id, entryId: entry.id, actionItemIds };
   }
@@ -179,6 +199,7 @@ export async function appendEntryInTx(
         detail: input.detail,
         followUp: input.followUp,
         bpOfWeekNominated: input.bpOfWeekNominated,
+        bestPresenter: input.bestPresenter,
         linkUrl: input.linkUrl,
         uploadBatchId: opts.uploadBatchId,
         createdBy: actorId,
@@ -208,9 +229,48 @@ export async function appendEntryInTx(
       },
       tx,
     );
+    await awardWeeklyFlags(tx, {
+      bpOfWeek: input.bpOfWeekNominated,
+      bestPresenter: input.bestPresenter,
+      initiativeId,
+      region: owner.region,
+      segment: owner.segment,
+      effectiveDate: input.entryDate,
+      actorId,
+      refId: entry.id,
+    });
 
     return { entryId: entry.id, actionItemIds };
   }
+}
+
+/**
+ * v1.2 (D14): award the two weekly +2 flags at submit. Each is capped 1/Area/week
+ * inside award(); a ticked box that hits the cap is silently skipped (no error).
+ */
+async function awardWeeklyFlags(
+  tx: Tx,
+  a: {
+    bpOfWeek: boolean;
+    bestPresenter: boolean;
+    initiativeId: number;
+    region: NewInitiativeInput["region"];
+    segment: NewInitiativeInput["segment"];
+    effectiveDate: string;
+    actorId: number;
+    refId: number;
+  },
+): Promise<void> {
+  const area = {
+    initiativeId: a.initiativeId,
+    region: a.region,
+    segment: a.segment,
+    effectiveDate: a.effectiveDate,
+    actorId: a.actorId,
+    refId: a.refId,
+  };
+  if (a.bpOfWeek) await award({ reason: "bp_of_week", ...area }, tx);
+  if (a.bestPresenter) await award({ reason: "best_presenter", ...area }, tx);
 }
 
 export type ActionItemDraft = {
@@ -225,7 +285,11 @@ async function maybeCreateActionItems(
   sourceEntryId: number,
   actorId: number,
   followUp: string | undefined,
-  opts: { createActionItem?: boolean; actionItem?: ActionItemDraft },
+  opts: {
+    createActionItem?: boolean;
+    actionItem?: ActionItemDraft;
+    actionItemPic?: string;
+  },
 ): Promise<number[]> {
   if (!opts.createActionItem) return [];
   const draft = opts.actionItem;
@@ -241,7 +305,7 @@ async function maybeCreateActionItems(
       .values({
         initiativeId,
         description,
-        pic: draft?.pic ?? "Unassigned",
+        pic: draft?.pic ?? opts.actionItemPic ?? "Unassigned",
         dueDate: draft?.dueDate,
         sourceEntryId,
         createdBy: actorId,
@@ -291,6 +355,8 @@ export type ListFilters = {
   pillar?: string[];
   stage?: string[];
   category?: "Best Practice" | "Unlocking";
+  /** v1.2 (item 12, D19): action-items-done bucket. "—" (0 items) excluded. */
+  donePct?: "0" | "partial" | "100";
   q?: string;
   sort?: string; // column key
   dir?: "asc" | "desc";
@@ -309,6 +375,9 @@ export type ListRow = {
   hasUnlocking: boolean;
   hasBestPractice: boolean;
   lastEntryDate: string | null;
+  // v1.2 (item 12): action-item completion. Denominator excludes Withdrawn/Cancelled.
+  actionTotal: number;
+  actionDone: number;
 };
 
 const SORTABLE: Record<string, ReturnType<typeof sql>> = {
@@ -354,6 +423,14 @@ export async function listInitiatives(
     );
   }
 
+  if (filters.donePct) {
+    const done = sql`(SELECT count(*) FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status = 'Done')`;
+    const total = sql`(SELECT count(*) FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status <> 'Withdrawn/Cancelled')`;
+    if (filters.donePct === "0") conds.push(sql`${total} > 0 AND ${done} = 0`);
+    else if (filters.donePct === "100") conds.push(sql`${total} > 0 AND ${done} = ${total}`);
+    else conds.push(sql`${total} > 0 AND ${done} > 0 AND ${done} < ${total}`);
+  }
+
   const where = conds.length ? and(...conds) : undefined;
 
   const sortCol = SORTABLE[filters.sort ?? "id"] ?? SORTABLE.id;
@@ -382,6 +459,8 @@ export async function listInitiatives(
       lastEntryDate: sql<
         string | null
       >`(SELECT max(e.entry_date) FROM entries e WHERE e.initiative_id = initiatives.id)`,
+      actionTotal: sql<number>`(SELECT count(*)::int FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status <> 'Withdrawn/Cancelled')`,
+      actionDone: sql<number>`(SELECT count(*)::int FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status = 'Done')`,
     })
     .from(initiatives)
     .where(where)

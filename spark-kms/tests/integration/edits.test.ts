@@ -25,6 +25,7 @@ const base: NewInitiativeInput = {
   detail: "Original detail",
   followUp: "chase vendor",
   bpOfWeekNominated: false,
+  bestPresenter: false,
 };
 
 let actor: number;

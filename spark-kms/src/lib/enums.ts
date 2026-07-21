@@ -19,6 +19,7 @@ export const PILLARS = [
   "Relevant Beauty Lifestyle",
   "Activated New Touchpoint",
   "Key Territory Execution",
+  "CEE", // v1.2 (D10)
 ] as const;
 
 export const CATEGORIES = ["Best Practice", "Unlocking"] as const;

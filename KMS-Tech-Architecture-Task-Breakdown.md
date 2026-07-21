@@ -2,15 +2,22 @@
 
 | | |
 |---|---|
-| Source of truth | KMS-Requirements-Doc-v1.1.md (approved 2026-07-06, all decisions resolved) |
+| doc_type | trd |
+| Source of truth | KMS-Requirements-Doc (v1.2, 2026-07-10). Decisions D1–D19 resolved. |
+| Status | Phases 1–5 **Approved / shipped** (live in prod). Phase 6 (v1.2) = **Draft**, engineer signoff pending. |
 | Consumer | Claude Code, executing phase by phase |
+| owner / last_verified | Levi / 2026-07-10 |
 | Rule | If this doc and the requirements doc disagree, the requirements doc wins. Stop and ask Levi. |
+
+**Glossary / systems** — SPARK KMS: this app. Lightsail: AWS's fixed-price container + managed-Postgres tier (prod host). Drizzle: the TypeScript ORM. pg_trgm: Postgres trigram extension for fuzzy title matching. Area: a Region×Segment pair (the leaderboard grain). PIC: "person in charge" (field staff named on an initiative). MCP: Model Context Protocol (the AI-tool integration surface).
+
+**Provenance** — `[V]` verified by the shipped, deployed code · `[A]` assumed / design-only, verify during the Phase-6 build · `[OPEN — …]` unresolved. Phase 1–5 facts are `[V]`; v1.2 additions below are `[A]` until built.
 
 ## 1. Stack
 
 | Layer | Choice | Why |
 |---|---|---|
-| Framework | Next.js 15 (App Router) + TypeScript | 1 codebase for UI + API, easy Vercel deploy |
+| Framework | Next.js 16 (App Router) + TypeScript `[V]` | 1 codebase for UI + API. Note: route gate is `proxy.ts` (Next 16 renamed `middleware`); async params/cookies |
 | Database | PostgreSQL (Neon or Supabase free tier) | pg_trgm for fuzzy matching; SQLite lacks it. Local dev: Docker Postgres or Neon branch |
 | ORM | Drizzle | Typed schema, plain SQL migrations, no codegen step |
 | UI | Tailwind CSS + shadcn/ui | Fast, consistent tables/forms/badges |
@@ -20,9 +27,9 @@
 | Excel | exceljs | Both template generation (styled, dropdown validation) and upload parsing |
 | Validation | Zod | 1 schema shared by form API and Excel row parser (REQ-U6) |
 | Tests | Vitest (unit/integration) + Playwright (E2E) | Phase test gates |
-| Deploy | Vercel + Neon | Or internal server; confirm with IT before phase 4 |
-| OpenAPI | zod-openapi + Scalar docs UI | Spec generated from the same Zod schemas used for validation (REQ-X1) |
-| MCP | @modelcontextprotocol/sdk, streamable HTTP at /api/mcp | Thin client over the REST API; same keys/scopes (REQ-X6..X8) |
+| Deploy | **AWS Lightsail** container service + managed Postgres, ap-southeast-1 `[V]` | Custom domain kms.paracorplabs.com; ~$30/mo. amd64 image built via Colima+Rosetta. Runbook: `spark-kms/LIGHTSAIL-DEPLOY.md` |
+| OpenAPI | **Zod v4 native `z.toJSONSchema`** + Scalar docs `[V]` | Spec generated from the shared Zod schemas (REQ-X1). Chosen over `zod-openapi` to avoid a Zod-v4 compat risk |
+| MCP | `mcp-handler` + @modelcontextprotocol/sdk, streamable HTTP at /api/mcp `[V]` | Thin surface over the shared `apiOps` layer; same keys/scopes (REQ-X6..X8) |
 
 ## 2. Project structure
 
@@ -53,7 +60,7 @@ Conventions: server components by default; no client state library (URL params c
 
 ## 3. Database schema (DDL summary)
 
-Enums as Postgres enums: `region` (5), `segment` (4), `pillar` (5), `entry_category` (2), `stage` (4), `action_status` (4), `score_stream` (4), `score_reason` (8), `batch_status` (3). Values exactly per requirements section 4.1.
+Enums as Postgres enums — **v1.2 values `[A]`:** `region` (5), `segment` (4), `pillar` (**6**, +CEE), `entry_category` (2), `stage` (4), `action_status` (4), `score_stream` (**2**: best_practice, best_presenter), `score_reason` (**6**: new_initiative, entry, bp_of_week, best_presenter, adjustment, reversal), `batch_status` (3), plus already-shipped `api_scope` (2) and `edit_entity` (3) `[V]`. Values exactly per requirements §4.1.
 
 ```sql
 users            id, email unique, name, password_hash, is_super boolean, active, created_at
@@ -77,11 +84,18 @@ api_keys         id, name, key_hash unique, scope ('read'|'write'), active bool 
 Indexes: `score_events(region, segment)`, `score_events(effective_date)`, `score_events(initiative_id)`, `entries(initiative_id, entry_date)`, `initiatives` trigram index on lower(title) (`CREATE EXTENSION pg_trgm`).
 
 Integrity rules enforced in `scoring.ts`, not triggers:
-- +1 new_initiative on create (after duplicate flow).
-- +1 entry per initiative per entry_date: `scoring.ts` checks for an existing non-reversed entry event with same initiative + effective_date before writing.
-- +2 bp_of_week only on super-admin confirm (sets `bp_of_week_confirmed_at`).
-- presenter +2 max 1/area/week; cee +1; cee_best +2 (manual console).
-- Deletes write compensating negative events (reason reversal), never remove rows.
+- +1 new_initiative on create (after duplicate flow). `[V]`
+- +1 entry per initiative per entry_date: checks for an existing non-reversed entry event with same initiative + effective_date before writing. `[V]`
+- **(v1.2 `[A]`)** +2 bp_of_week and +2 best_presenter: **auto on submit when the box is ticked — no confirmation — each capped 1/Area/week** (skip if that Area already has one this week). `bp_of_week_confirmed_at` kept only as an audit stamp.
+- Deletes / removals write compensating negative events (reason reversal), never remove rows. `[V]`
+
+**v1.2 schema delta `[A]` (Phase 6):**
+- New table `person` (id, name, active, created_by, created_at) — the PIC directory. `initiatives.pic` stays text; a typed/uploaded new name appends a `person` row (case-insensitive de-dup).
+- `entries.best_presenter` boolean default false (mirrors `bp_of_week`).
+- `ALTER TYPE pillar ADD VALUE 'CEE'` (additive, safe).
+- `score_stream`: retire `cee`/`cee_best`, repurpose `presenter`→best_presenter. Postgres can't drop in-use enum values, so either migrate `score_events.stream` to a new 2-value enum or keep the type and stop writing/summing the retired values — **`[OPEN — enum strategy, owner: build engineer, decide at Phase 6 start]`**.
+- Migration writes `reversal` events for all existing cee/cee_best/presenter rows (REQ-S5); **no raw deletes**. Full DB snapshot first (D16).
+- Already shipped post-v1.1 (not in the v1.1 DDL above): `edit_log` and `api_keys`. `[V]`
 
 ## 4. API surface
 
@@ -102,10 +116,12 @@ All under `app/api/`. Auth middleware: `viewer` (any session), `admin`, `super`.
 | /api/upload/template | GET | admin | generated xlsx (template.ts) |
 | /api/upload/preview | POST | admin | file -> per-row validation + duplicate candidates + batch id |
 | /api/upload/commit | POST | admin | batch id + per-row create/append choices -> all-or-nothing transaction |
-| /api/admin/* | POST/PATCH | super | users, viewer password rotation, bp confirmations, manual points, adjustments, API keys |
+| /api/admin/* | POST/PATCH | super | users, viewer password rotation, adjustments, API keys. **(v1.2 `[A]`)** removes bp-confirm + manual point streams; adds `/api/admin/people` (GET list, POST upload, PATCH deactivate) + `/api/admin/people/template` for the PIC directory |
 | /api/v1/* | GET/POST | api key | public integration API (mirrors read routes; write = create initiative/append entry with 409 duplicate contract) |
 | /api/openapi.json, /api/docs | GET | - | generated OpenAPI 3.1 spec + Scalar docs UI |
 | /api/mcp | POST (streamable HTTP) | api key | MCP server: search_initiatives, get_initiative, get_top_initiatives, get_leaderboard, get_dashboard_summary, create_initiative, add_entry |
+
+**v1.2 API deltas `[A]`:** the `bp_of_week`/`best_presenter` flags on `POST /api/initiatives` and `.../entries` now write the +2 immediately (subject to the 1/Area/week cap) instead of just setting a nomination flag. `GET /api/initiatives` gains a `%-done` field + filter. `POST /api/upload/preview` returns dedup candidates as today; commit adds bulk-resolution + a required `acknowledged` flag and persists PIC to the `person` directory. `GET /api/people` (viewer) powers the PIC picker's autocomplete.
 
 ## 5. Task breakdown (execute in order; do not start a phase before the previous gate passes)
 
@@ -165,6 +181,19 @@ All under `app/api/`. Auth middleware: `viewer` (any session), `admin`, `super`.
 5.6 Never exposed via API/MCP: BP confirmation, manual point streams, adjustments, user management, password rotation (REQ-X3).
 
 **Gate 5:** integration: read scope cannot write (403); 409 duplicate contract honored end-to-end incl. append_to and force_new; points identical for API-created vs form-created entries; revoked key rejected; openapi.json validates against OpenAPI 3.1 schema; smoke test: connect a Claude client to /api/mcp, run search_initiatives and add_entry successfully.
+
+### Phase 6: v1.2 change batch (requirements section 6, decisions D9–D19) `[A]`
+
+Full executable plan: **`KMS-v1.2-Epic-and-Plan.md`**. Ordered so the scoring/data migration lands behind a DB snapshot and a re-baselined golden test **before** any UI ships. This runs against a **live** system, so the migration steps are gated.
+
+6.1 Schema: `person` table, `entries.best_presenter`, `pillar`+CEE, decide the `score_stream` enum strategy (§3 delta). Generate migration; do NOT apply to prod yet.
+6.2 `scoring.ts` (test-first): 2-stream model — auto-award `bp_of_week` + `best_presenter` at +2, each capped 1/Area/week; delete the presenter/cee/cee_best award paths. Re-baseline the golden fixture to 2 streams.
+6.3 Live-data migration script: snapshot → `reversal` events for every existing cee/cee_best/presenter row (net zero) → apply enum/table migration. No raw deletes. **Dry-run against a prod DB copy first.**
+6.4 PIC directory: `person` service + `/api/admin/people` upload + `/api/people` autocomplete + Submit/edit picker + bulk-upload PIC persistence (D15).
+6.5 Bulk dedup review: batch resolve + mandatory acknowledgment before commit (REQ-U9).
+6.6 UI batch: side collapsible nav; dashboard (remove BP/Unlocking cards, Weekly Top Initiatives + PIC/stage); list (%-done column + filter, collapsed filters); detail (drop CEE tiles, drop BP badge, link-on-top, drop follow-up display); leaderboard (2 streams + drill-down pillar/PIC); Submit wording + Best-Presenter checkbox.
+
+**Gate 6:** unit — 2-stream scoring incl. caps + no-backfill; migration reverses to net-zero and is idempotent; golden re-baselined. Integration — bulk dedup acknowledgment + PIC persisted from upload. E2E — auto-award on submit, PIC picker adds a person, side-nav collapse, %-done filter. Prod — snapshot taken, migration dry-run passed, live smoke after deploy.
 
 ## 6. Testing policy (applies to every phase)
 

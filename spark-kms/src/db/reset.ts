@@ -13,7 +13,7 @@ export async function truncateAll() {
   await db.execute(sql`
     TRUNCATE TABLE
       score_events, stage_changes, action_items, entries, edit_log,
-      upload_batches, api_keys, initiatives, users, app_config
+      upload_batches, api_keys, people, initiatives, users, app_config
     RESTART IDENTITY CASCADE
   `);
 }

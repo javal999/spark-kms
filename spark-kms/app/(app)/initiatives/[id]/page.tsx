@@ -70,20 +70,20 @@ export default async function InitiativeDetailPage({
             )}
           </div>
         </div>
-        {initiative.description && (
-          <p className="max-w-3xl text-sm text-foreground/90">
-            {initiative.description}
-          </p>
-        )}
         {initiative.linkUrl && (
           <a
             href={initiative.linkUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-sm text-blue-600 hover:underline"
+            className="inline-flex w-fit items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
-            {initiative.linkUrl}
+            View doc ↗
           </a>
+        )}
+        {initiative.description && (
+          <p className="max-w-3xl text-sm text-foreground/90">
+            {initiative.description}
+          </p>
         )}
         {admin && (
           <div className="mt-1">
@@ -103,13 +103,11 @@ export default async function InitiativeDetailPage({
       </div>
 
       {/* Points panel — per-stream SUM for this initiative (never stored). */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <section className="grid grid-cols-3 gap-3">
         {(
           [
             ["Best Practice", points.best_practice],
-            ["Presenter", points.presenter],
-            ["CEE", points.cee],
-            ["CEE Best", points.cee_best],
+            ["Best Presenter", points.best_presenter],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="rounded-lg border bg-card px-4 py-3">
@@ -149,7 +147,10 @@ export default async function InitiativeDetailPage({
                 <span className="font-mono text-xs text-muted-foreground">
                   {e.entryDate}
                 </span>
-                <CategoryBadge category={e.category} />
+                {/* v1.2 (item 15): only the Unlocking flag is shown. */}
+                {e.category === "Unlocking" && (
+                  <CategoryBadge category={e.category} />
+                )}
                 {e.bpOfWeekConfirmedAt ? (
                   <Badge className="border-amber-300 bg-amber-100 text-amber-900">
                     ★ BP of the Week
@@ -163,12 +164,7 @@ export default async function InitiativeDetailPage({
               <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
                 {e.detail}
               </p>
-              {e.followUp && (
-                <p className="mt-2 rail rounded-r bg-muted/50 px-3 py-2 text-sm">
-                  <span className="font-medium">Follow-up: </span>
-                  {e.followUp}
-                </p>
-              )}
+              {/* v1.2 (item 17): follow-ups surface as action items, not here. */}
               {e.linkUrl && (
                 <a
                   href={e.linkUrl}

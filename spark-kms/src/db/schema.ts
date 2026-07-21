@@ -44,6 +44,7 @@ export const pillarEnum = pgEnum("pillar", [
   "Relevant Beauty Lifestyle",
   "Activated New Touchpoint",
   "Key Territory Execution",
+  "CEE", // v1.2 (D10): CEE is now a pillar, not a score stream.
 ]);
 
 export const entryCategoryEnum = pgEnum("entry_category", [
@@ -65,6 +66,9 @@ export const actionStatusEnum = pgEnum("action_status", [
   "Withdrawn/Cancelled",
 ]);
 
+// v1.2 (D11/D12): only `best_practice` and `presenter` are used. `presenter` is
+// repurposed as the "Best Presenter of the Week" stream; `cee`/`cee_best` are
+// retired (kept in the enum for the historical reversed rows, never re-summed).
 export const scoreStreamEnum = pgEnum("score_stream", [
   "best_practice",
   "presenter",
@@ -76,9 +80,10 @@ export const scoreReasonEnum = pgEnum("score_reason", [
   "new_initiative",
   "entry",
   "bp_of_week",
-  "presentation",
-  "cee_participation",
-  "cee_best",
+  "best_presenter", // v1.2 (D12): +2 Best Presenter of the Week
+  "presentation", // retired v1.2 (kept for historical rows)
+  "cee_participation", // retired v1.2
+  "cee_best", // retired v1.2
   "adjustment",
   "reversal",
 ]);
@@ -172,6 +177,8 @@ export const entries = pgTable(
     bpOfWeekConfirmedAt: timestamp("bp_of_week_confirmed_at", {
       withTimezone: true,
     }),
+    // v1.2 (D12): "Best Presenter of the Week" — auto-awards +2 when set.
+    bestPresenter: boolean("best_presenter").notNull().default(false),
     linkUrl: text("link_url"),
     outcomeMetric: text("outcome_metric"),
     outcomeValue: text("outcome_value"),
@@ -318,6 +325,23 @@ export const editLog = pgTable(
       .defaultNow(),
   },
   (t) => [index("edit_log_initiative_idx").on(t.initiativeId)],
+);
+
+// PIC people directory (v1.2, D9). Names only — NOT login accounts. Drives the
+// searchable PIC picker; grown by admin upload, by typing a new name on Submit,
+// or from bulk upload. `initiatives.pic` stays free text (denormalized name).
+export const people = pgTable(
+  "people",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: integer("created_by").references(() => users.id),
+  },
+  (t) => [uniqueIndex("people_name_lower_idx").using("btree", sql`lower(${t.name})`)],
 );
 
 // Convenience type exports for services.

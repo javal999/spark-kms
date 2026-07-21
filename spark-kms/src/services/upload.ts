@@ -8,6 +8,7 @@ import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums"
 import { TEMPLATE_COLUMNS, getTemplateVersion } from "@/src/services/template";
 import { findDuplicateCandidates, type DuplicateCandidate } from "@/src/services/duplicates";
 import { createInitiativeInTx, appendEntryInTx } from "@/src/services/initiatives";
+import { upsertByName } from "@/src/services/people";
 
 /**
  * Excel upload parsing + normalization (REQ-U8) feeding the SHARED validation
@@ -75,8 +76,8 @@ function parseCellDate(value: ExcelJS.CellValue): string | undefined {
   return s; // let the schema reject an unparseable value
 }
 
-function parseBool(raw: string): boolean {
-  const t = raw.trim().toLowerCase();
+function parseBool(raw: string | undefined | null): boolean {
+  const t = (raw ?? "").trim().toLowerCase();
   return t === "true" || t === "1" || t === "yes";
 }
 
@@ -166,7 +167,10 @@ function buildRow(
     detail: raw["Progress"],
     followUp: raw["Need Follow Up Action/Unlocking"] || undefined,
     stage: stage.value,
-    bpOfWeekNominated: parseBool(raw["Best Practices of The Week"]),
+    bpOfWeekNominated: parseBool(
+      raw["Best Practice of the Week"] ?? raw["Best Practices of The Week"],
+    ),
+    bestPresenter: parseBool(raw["Best Presenter of the Week"]),
     linkUrl: raw["Link File"] || undefined,
   };
 
@@ -409,9 +413,17 @@ export async function commitUpload(
         detail: data.detail,
         followUp: data.followUp,
         bpOfWeekNominated: data.bpOfWeekNominated,
+        bestPresenter: data.bestPresenter,
         linkUrl: data.linkUrl,
       };
-      const withActionItem = { createActionItem: !!data.followUp, uploadBatchId: batch.id };
+      const withActionItem = {
+        createActionItem: !!data.followUp,
+        uploadBatchId: batch.id,
+        actionItemPic: data.pic, // v1.2 (D15): items inherit the row PIC
+      };
+      // v1.2 (D9): every uploaded PIC joins the people directory. (createInitiative
+      // also upserts, so this covers append rows too — idempotent.)
+      await upsertByName(data.pic, actorId, tx);
 
       if (choice.action === "append" && choice.initiativeId) {
         await appendEntryInTx(tx, choice.initiativeId, entryInput, actorId, withActionItem);

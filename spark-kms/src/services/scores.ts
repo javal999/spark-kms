@@ -18,10 +18,8 @@ export type LeaderboardRow = {
   rank: number;
   region: string;
   segment: string;
-  presenter: number;
   best_practice: number;
-  cee: number;
-  cee_best: number;
+  best_presenter: number; // v1.2: the `presenter` stream relabeled
   total: number;
 };
 
@@ -47,28 +45,22 @@ export async function areaLeaderboard(weekKey?: string): Promise<LeaderboardRow[
       GROUP BY se.region, se.segment, se.stream
     )
     SELECT a.region, a.segment,
-      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'presenter'), 0)::int AS presenter,
       coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'best_practice'), 0)::int AS best_practice,
-      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'cee'), 0)::int AS cee,
-      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'cee_best'), 0)::int AS cee_best
+      coalesce(sum(agg.pts) FILTER (WHERE agg.stream = 'presenter'), 0)::int AS best_presenter
     FROM areas a
     LEFT JOIN agg ON agg.region = a.region AND agg.segment = a.segment
     GROUP BY a.region, a.segment
   `);
 
   const list = (rows as unknown as Array<Record<string, unknown>>).map((r) => {
-    const presenter = Number(r.presenter);
     const best_practice = Number(r.best_practice);
-    const cee = Number(r.cee);
-    const cee_best = Number(r.cee_best);
+    const best_presenter = Number(r.best_presenter);
     return {
       region: String(r.region),
       segment: String(r.segment),
-      presenter,
       best_practice,
-      cee,
-      cee_best,
-      total: presenter + best_practice + cee + cee_best,
+      best_presenter,
+      total: best_practice + best_presenter,
     };
   });
 
@@ -97,6 +89,8 @@ export type TopInitiative = {
   title: string;
   region: string;
   segment: string;
+  pic: string; // v1.2 (item 11)
+  stage: string; // v1.2 (item 11)
   points: number;
 };
 
@@ -112,11 +106,12 @@ export async function topInitiatives(
 
   const rows = await db.execute(sql`
     SELECT i.id, i.title, i.region::text AS region, i.segment::text AS segment,
+           i.pic, i.stage::text AS stage,
            coalesce(sum(se.points), 0)::int AS points
     FROM initiatives i
     JOIN score_events se ON se.initiative_id = i.id
     WHERE true ${dateClause}
-    GROUP BY i.id, i.title, i.region, i.segment
+    GROUP BY i.id, i.title, i.region, i.segment, i.pic, i.stage
     HAVING coalesce(sum(se.points), 0) > 0
     ORDER BY points DESC, i.id ASC
     LIMIT ${limit}
@@ -127,15 +122,15 @@ export async function topInitiatives(
     title: String(r.title),
     region: String(r.region),
     segment: String(r.segment),
+    pic: String(r.pic),
+    stage: String(r.stage),
     points: Number(r.points),
   }));
 }
 
 export type StreamTotals = {
   best_practice: number;
-  presenter: number;
-  cee: number;
-  cee_best: number;
+  best_presenter: number; // v1.2: the `presenter` stream relabeled
   total: number;
 };
 
@@ -148,16 +143,14 @@ export async function initiativeStreamTotals(
     FROM score_events WHERE initiative_id = ${initiativeId}
     GROUP BY stream
   `);
-  const t: StreamTotals = {
-    best_practice: 0,
-    presenter: 0,
-    cee: 0,
-    cee_best: 0,
-    total: 0,
-  };
+  const t: StreamTotals = { best_practice: 0, best_presenter: 0, total: 0 };
   for (const r of rows as unknown as Array<{ stream: string; pts: number }>) {
     const v = Number(r.pts);
-    (t as unknown as Record<string, number>)[r.stream] = v;
+    // Only the two live streams count; retired cee/cee_best rows (reversed on
+    // migration) are ignored here.
+    if (r.stream === "best_practice") t.best_practice += v;
+    else if (r.stream === "presenter") t.best_presenter += v;
+    else continue;
     t.total += v;
   }
   return t;
@@ -237,7 +230,8 @@ export async function areaScoreEvents(
   const rows = await db.execute(sql`
     SELECT se.id, se.stream::text AS stream, se.reason::text AS reason,
            se.points::int AS points, se.effective_date::text AS effective_date,
-           se.initiative_id AS initiative_id, i.title AS title, se.note
+           se.initiative_id AS initiative_id, i.title AS title,
+           i.pillar::text AS pillar, i.pic AS pic, se.note
     FROM score_events se
     LEFT JOIN initiatives i ON i.id = se.initiative_id
     WHERE se.region = ${region}::region AND se.segment = ${segment}::segment ${dateClause}
@@ -251,6 +245,9 @@ export async function areaScoreEvents(
     effectiveDate: String(r.effective_date),
     initiativeId: r.initiative_id ? Number(r.initiative_id) : null,
     title: r.title ? String(r.title) : null,
+    // v1.2 (item 18): surface which pillar and contributor (PIC) earned it.
+    pillar: r.pillar ? String(r.pillar) : null,
+    pic: r.pic ? String(r.pic) : null,
     note: r.note ? String(r.note) : null,
   }));
 }

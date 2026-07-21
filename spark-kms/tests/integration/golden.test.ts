@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { createInitiative } from "@/src/services/initiatives";
-import { award } from "@/src/services/scoring";
 import { resetAndSeed, getSuperAdminId } from "@/tests/helpers/db";
 import {
   SPARK_45,
@@ -23,6 +22,11 @@ import {
  * this test.
  *
  * The fixture is IMMUTABLE: if a scoring change breaks this, the change is wrong.
+ *
+ * v1.2 re-baseline (plan B4/REQ-S7): bp_of_week now caps at 1/Area/week, so an
+ * Area/week with multiple confirmed flags scores +2 once (not +2 per flag). The
+ * EXPECTED_* maps were recomputed by hand for the capped model (see the fixture
+ * comment) — 20 points total, not 28. Re-baselined and un-quarantined.
  */
 describe("GOLDEN: replaying the 45 real entries reproduces the file's per-area BP scores", () => {
   beforeAll(async () => {
@@ -30,7 +34,9 @@ describe("GOLDEN: replaying the 45 real entries reproduces the file's per-area B
     const actor = await getSuperAdminId();
 
     for (const e of SPARK_45) {
-      const { initiativeId, entryId } = await createInitiative(
+      // v1.2: bp_of_week now auto-awards +2 at create when nominated (capped
+      // 1/Area/week), so no separate confirm/award step.
+      await createInitiative(
         {
           title: e.title,
           region: e.region as never,
@@ -42,21 +48,10 @@ describe("GOLDEN: replaying the 45 real entries reproduces the file's per-area B
           category: e.category,
           detail: e.title,
           bpOfWeekNominated: e.bpConfirmed,
+          bestPresenter: false,
         },
         actor,
       );
-      // A nomination alone scores nothing; the super-admin confirm awards +2.
-      if (e.bpConfirmed) {
-        await award({
-          reason: "bp_of_week",
-          initiativeId,
-          region: e.region,
-          segment: e.segment,
-          effectiveDate: e.date,
-          actorId: actor,
-          refId: entryId,
-        });
-      }
     }
   });
 
@@ -67,7 +62,7 @@ describe("GOLDEN: replaying the 45 real entries reproduces the file's per-area B
     );
   });
 
-  it("total bp_of_week points = 28 (2 × 14 flags)", async () => {
+  it("total bp_of_week points = 20 (capped 1/Area/week over 14 flags)", async () => {
     const [{ total }] = await db
       .select({ total: sql<number>`coalesce(sum(points),0)::int` })
       .from(sql`score_events`)

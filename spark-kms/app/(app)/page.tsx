@@ -19,7 +19,15 @@ export default async function DashboardPage({
   searchParams: Promise<SP>;
 }) {
   const sp = await searchParams;
-  const week = first(sp.topweek);
+
+  const weeks = recentWeekKeys(8).map((key) => ({
+    key,
+    label: formatWeekLabel(key),
+  }));
+  // v1.2 (item 10): Weekly Top Initiatives defaults to the current week; the
+  // user can still pick an older week or All-time from the selector.
+  const currentWeek = weeks[0]?.key;
+  const week = first(sp.topweek) ?? currentWeek;
 
   const [stats, top, session] = await Promise.all([
     dashboardStats(),
@@ -27,11 +35,6 @@ export default async function DashboardPage({
     readSession(),
   ]);
   const admin = isAdmin(session.role);
-
-  const weeks = recentWeekKeys(8).map((key) => ({
-    key,
-    label: formatWeekLabel(key),
-  }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -101,34 +104,6 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* Category split */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href={enc("category", "Best Practice")}
-          className="flex items-center justify-between rounded-lg border bg-card p-4 hover:border-foreground/30"
-        >
-          <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-blue-500" />
-            <span className="text-sm">Has a Best Practice</span>
-          </div>
-          <span className="text-2xl font-semibold tabular-nums">
-            {stats.withBestPractice}
-          </span>
-        </Link>
-        <Link
-          href={enc("category", "Unlocking")}
-          className="flex items-center justify-between rounded-lg border bg-card p-4 hover:border-foreground/30"
-        >
-          <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-amber-500" />
-            <span className="text-sm">Has an Unlocking</span>
-          </div>
-          <span className="text-2xl font-semibold tabular-nums">
-            {stats.withUnlocking}
-          </span>
-        </Link>
-      </section>
-
       {/* Distributions */}
       <section className="grid gap-4 lg:grid-cols-3">
         <DistributionBars
@@ -151,8 +126,12 @@ export default async function DashboardPage({
       {/* Top initiatives */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Top initiatives</h2>
-          <WeekSelector param="topweek" weeks={weeks} />
+          <h2 className="text-lg font-medium">Weekly Top Initiatives</h2>
+          <WeekSelector
+            param="topweek"
+            weeks={weeks}
+            defaultValue={currentWeek}
+          />
         </div>
         <div className="rounded-lg border bg-card">
           {top.length === 0 ? (
@@ -173,7 +152,13 @@ export default async function DashboardPage({
                     <span className="flex-1 truncate font-medium">
                       {t.title}
                     </span>
+                    <span className="hidden text-xs text-muted-foreground md:inline">
+                      {t.pic}
+                    </span>
                     <Badge variant="outline" className="hidden sm:inline-flex">
+                      {t.stage}
+                    </Badge>
+                    <Badge variant="outline" className="hidden lg:inline-flex">
                       {t.region} · {t.segment}
                     </Badge>
                     <span className="w-12 text-right font-semibold tabular-nums">

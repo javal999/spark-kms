@@ -74,28 +74,37 @@ export const SPARK_45: GoldenEntry[] = [
 ];
 
 /**
- * Hand-verified expected Best-Practice-of-week points, taken from the file’s
- * "Dashboard Final" recap (NOT computed from SPARK_45 — keeps the golden test
- * honest). Each = 2 × confirmed flags. Region rollups match the recap exactly.
+ * Expected Best-Practice-of-week points under the v1.2 CAPPED model (REQ-S3:
+ * bp_of_week awards +2 at most once per Area per week). Derived by hand from the
+ * file's confirmed-flag placement (region × segment × week) — NOT from the
+ * scoring engine — so a bug in point value, Area attribution, week bucketing, or
+ * the cap itself still breaks the golden test.
+ *
+ * The 14 confirmed flags fall in two weeks (all 2026-06-24 → W1; all 2026-07-01
+ * → W2). Areas with >1 flag in the same week collapse to a single +2:
+ *   - Kalimantan/All:            2 in W1, 2 in W2 → +2 +2 = 4 (was 8)
+ *   - Jakarta Greater/Masstige:  2 in W1, 1 in W2 → +2 +2 = 4 (was 6)
+ *   - EJBN/Masstige:             2 in W2          → +2    = 2 (was 4)
+ * 10 distinct (Area, week) combos → 20 points total (was 28 under 2×flag).
  */
 export const EXPECTED_BP_BY_REGION: Record<string, number> = {
-  "EJBN": 4,
+  "EJBN": 2,
   "CJWJ": 6,
-  "Jakarta Greater": 8,
+  "Jakarta Greater": 6,
   "Sumatera": 2,
-  "Kalimantan": 8,
+  "Kalimantan": 4,
 };
 
 /** App-native granularity: per (region, segment) area. */
 export const EXPECTED_BP_BY_AREA: Record<string, number> = {
-  "Jakarta Greater / Masstige": 6,
+  "Jakarta Greater / Masstige": 4,
   "Jakarta Greater / Halal PC": 2,
   "CJWJ / Teen & ES": 4,
   "CJWJ / Halal PC": 2,
-  "EJBN / Masstige": 4,
+  "EJBN / Masstige": 2,
   "Sumatera / Teen & ES": 2,
-  "Kalimantan / All": 8,
+  "Kalimantan / All": 4,
 };
 
-export const EXPECTED_BP_TOTAL = 28;
+export const EXPECTED_BP_TOTAL = 20;
 export const EXPECTED_CONFIRMED_FLAGS = 14;

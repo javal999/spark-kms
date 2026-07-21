@@ -33,9 +33,7 @@ export type AwardInput =
   | ({ reason: "new_initiative"; initiativeId: number; refId?: number } & AreaFields)
   | ({ reason: "entry"; initiativeId: number; refId?: number } & AreaFields)
   | ({ reason: "bp_of_week"; initiativeId: number; refId?: number } & AreaFields)
-  | ({ reason: "presentation"; initiativeId?: null; refId?: number } & AreaFields)
-  | ({ reason: "cee_participation"; initiativeId?: null; refId?: number } & AreaFields)
-  | ({ reason: "cee_best"; initiativeId?: null; refId?: number } & AreaFields)
+  | ({ reason: "best_presenter"; initiativeId: number; refId?: number } & AreaFields)
   | ({
       reason: "adjustment";
       stream: Stream;
@@ -49,14 +47,15 @@ export type AwardResult =
   | { status: "awarded"; eventId: number; points: number; stream: Stream }
   | { status: "skipped"; reason: "daily-cap" | "area-week-cap" };
 
-// reason → (stream, base points) for the automated/manual streams.
+// v1.2 (D11/D12) reason → (stream, base points). Two streams only:
+// best_practice (new_initiative, entry, bp_of_week) and presenter, which now
+// carries the "Best Presenter of the Week" award. CEE / standalone presenter
+// removed.
 const RULES: Record<string, { stream: Stream; points: number }> = {
   new_initiative: { stream: "best_practice", points: 1 },
   entry: { stream: "best_practice", points: 1 },
   bp_of_week: { stream: "best_practice", points: 2 },
-  presentation: { stream: "presenter", points: 2 },
-  cee_participation: { stream: "cee", points: 1 },
-  cee_best: { stream: "cee_best", points: 2 },
+  best_presenter: { stream: "presenter", points: 2 },
 };
 
 /** SQL predicate: this event id has NOT been reversed. */
@@ -79,11 +78,14 @@ async function awardImpl(event: AwardInput, tx: Tx): Promise<AwardResult> {
     }
   }
 
-  if (event.reason === "presentation") {
+  // v1.2 (D14): the two weekly awards are capped 1 per Area per week, each
+  // reason independently. The first ticked entry in an Area that week scores;
+  // later ones are skipped.
+  if (event.reason === "bp_of_week" || event.reason === "best_presenter") {
     const { start, end } = weekDateRange(event.effectiveDate);
     const existing = await tx.execute(sql`
       SELECT se.id FROM ${scoreEvents} se
-      WHERE se.reason = 'presentation'
+      WHERE se.reason = ${event.reason}
         AND se.region = ${event.region}::region
         AND se.segment = ${event.segment}::segment
         AND se.effective_date BETWEEN ${start} AND ${end}
@@ -212,7 +214,7 @@ export async function reverseEntryScores(
     const active = await t.execute(sql`
       SELECT se.id FROM ${scoreEvents} se
       WHERE se.ref_id = ${entryRefId}
-        AND se.reason IN ('entry', 'bp_of_week')
+        AND se.reason IN ('entry', 'bp_of_week', 'best_presenter')
         AND ${notReversed()}
     `);
     const ids = (active as unknown as Array<{ id: number }>).map((r) =>

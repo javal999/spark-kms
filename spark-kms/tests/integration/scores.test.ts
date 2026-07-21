@@ -23,16 +23,15 @@ beforeAll(async () => {
 
   // A varied dataset across areas, streams, weeks, plus a reversal.
   const a = await createInitiative(
-    { title: "Alpha", region: "Sumatera", segment: "Masstige", pillar: "Social Buzz", stage: "Idea", pic: "P", entryDate: "2026-07-01", category: "Best Practice", detail: "d", bpOfWeekNominated: false },
+    { title: "Alpha", region: "Sumatera", segment: "Masstige", pillar: "Social Buzz", stage: "Idea", pic: "P", entryDate: "2026-07-01", category: "Best Practice", detail: "d", bpOfWeekNominated: false, bestPresenter: false },
     actor,
   );
   const b = await createInitiative(
-    { title: "Bravo", region: "CJWJ", segment: "Halal PC", pillar: "Personalized CRM", stage: "Pilot", pic: "P", entryDate: "2026-07-02", category: "Unlocking", detail: "d", bpOfWeekNominated: false },
+    { title: "Bravo", region: "CJWJ", segment: "Halal PC", pillar: "Personalized CRM", stage: "Pilot", pic: "P", entryDate: "2026-07-02", category: "Unlocking", detail: "d", bpOfWeekNominated: false, bestPresenter: false },
     actor,
   );
-  // Manual streams on Alpha's area.
-  await award({ reason: "presentation", region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor });
-  await award({ reason: "cee_participation", region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor });
+  // Weekly awards on Alpha's area (v1.2 two streams).
+  await award({ reason: "best_presenter", initiativeId: a.initiativeId, region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor, refId: a.entryId });
   await award({ reason: "bp_of_week", initiativeId: a.initiativeId, region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor, refId: a.entryId });
   // A reversal on Bravo's entry point.
   const rows = await db.execute<{ id: number }>(sql`SELECT id FROM score_events WHERE initiative_id = ${b.initiativeId} AND reason='entry' LIMIT 1`);
@@ -59,9 +58,7 @@ describe("leaderboard == direct SUM", () => {
   it("stream columns sum to the row total", async () => {
     const board = await areaLeaderboard();
     for (const row of board) {
-      expect(row.presenter + row.best_practice + row.cee + row.cee_best).toBe(
-        row.total,
-      );
+      expect(row.best_practice + row.best_presenter).toBe(row.total);
     }
   });
 

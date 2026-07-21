@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -108,6 +109,110 @@ export function UsersPanel({ admins }: { admins: Admin[] }) {
           </label>
         </div>
         <div><Button onClick={create} disabled={busy} data-testid="create-admin">Add admin</Button></div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type Person = { id: number; name: string; active: boolean };
+
+/**
+ * v1.2 (item 2, D9): PIC people directory management. Bulk-add names (paste one
+ * per line) and activate/deactivate. Names, not logins — the Submit picker
+ * autocompletes from the active set.
+ */
+export function PeoplePanel({ people }: { people: Person[] }) {
+  const router = useRouter();
+  const [names, setNames] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    const parsed = names
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parsed.length === 0) return toast.error("Enter at least one name");
+    setBusy(true);
+    const { ok, data } = await postJSON("/api/admin/people", { names: parsed });
+    setBusy(false);
+    if (!ok) return toast.error(data.error ?? "Failed");
+    toast.success(`${data.added} added · ${data.total} in directory`);
+    setNames("");
+    router.refresh();
+  }
+
+  async function toggle(p: Person) {
+    const { ok, data } = await postJSON(
+      "/api/admin/people",
+      { id: p.id, active: !p.active },
+      "PATCH",
+    );
+    if (!ok) return toast.error(data.error ?? "Failed");
+    router.refresh();
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>PIC directory</CardTitle>
+        <CardDescription>
+          Field-person names for the Submit picker. Not login accounts. Typing a
+          new name on Submit also adds it here.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label>Add names (one per line)</Label>
+          <Textarea
+            value={names}
+            onChange={(e) => setNames(e.target.value)}
+            rows={4}
+            placeholder={"Sri Rahayu\nBudi Santoso"}
+            data-testid="people-names"
+          />
+          <div>
+            <Button onClick={add} disabled={busy} data-testid="add-people">
+              Add to directory
+            </Button>
+          </div>
+        </div>
+
+        {people.length > 0 && (
+          <div className="rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {people.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-3 py-2 font-medium">{p.name}</td>
+                    <td className="px-3 py-2">
+                      {p.active ? (
+                        <span className="text-green-700">Active</span>
+                      ) : (
+                        <span className="text-muted-foreground">Inactive</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggle(p)}
+                      >
+                        {p.active ? "Deactivate" : "Reactivate"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

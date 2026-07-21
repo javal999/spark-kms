@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { listAdmins } from "@/src/services/admin";
 import { listApiKeys } from "@/src/services/apiKeys";
+import { listPeople } from "@/src/services/people";
 import {
   UsersPanel,
+  PeoplePanel,
   ViewerPasswordPanel,
   ScoringPanel,
   ApiKeysPanel,
@@ -12,13 +14,18 @@ import { AdminSectionNav, type AdminSection } from "@/components/admin-section-n
 const SECTIONS: AdminSection[] = [
   { id: "scoring", label: "Adjustments" },
   { id: "admins", label: "Admins" },
+  { id: "people", label: "PIC directory" },
   { id: "api-keys", label: "API keys" },
   { id: "viewer-password", label: "Viewer password" },
   { id: "template", label: "Template" },
 ];
 
 export default async function AdminPage() {
-  const [admins, apiKeys] = await Promise.all([listAdmins(), listApiKeys()]);
+  const [admins, apiKeys, people] = await Promise.all([
+    listAdmins(),
+    listApiKeys(),
+    listPeople(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,6 +43,9 @@ export default async function AdminPage() {
       </section>
       <section id="admins" className="scroll-mt-28">
         <UsersPanel admins={admins} />
+      </section>
+      <section id="people" className="scroll-mt-28">
+        <PeoplePanel people={people} />
       </section>
       <section id="api-keys" className="scroll-mt-28">
         <ApiKeysPanel

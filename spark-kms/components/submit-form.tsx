@@ -30,6 +30,7 @@ import {
   CATEGORIES,
   STAGES,
 } from "@/src/lib/enums";
+import { PersonPicker } from "@/components/person-picker";
 
 type Candidate = {
   id: number;
@@ -336,11 +337,7 @@ export function SubmitForm() {
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="PIC (field person)">
-                <Input
-                  value={pic}
-                  onChange={(e) => setPic(e.target.value)}
-                  data-testid="pic"
-                />
+                <PersonPicker value={pic} onChange={setPic} testid="pic" />
               </Field>
               <Field label="Pillar">
                 <EnumSelect
@@ -515,10 +512,10 @@ function EntryFields({
           {entry.createActionItem && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="Action PIC">
-                <Input
+                <PersonPicker
                   value={entry.aiPic}
+                  onChange={(v) => setE({ aiPic: v })}
                   placeholder={pic || "Unassigned"}
-                  onChange={(e) => setE({ aiPic: e.target.value })}
                 />
               </Field>
               <Field label="Due date (optional)">

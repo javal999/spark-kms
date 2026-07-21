@@ -18,14 +18,17 @@ const ALL = "all-time";
 export function WeekSelector({
   param = "week",
   weeks,
+  defaultValue = ALL,
 }: {
   param?: string;
   weeks: { key: string; label: string }[];
+  /** Selection shown when the URL param is absent (default: All-time). */
+  defaultValue?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
-  const current = search.get(param) ?? ALL;
+  const current = search.get(param) ?? defaultValue;
 
   function change(value: string | null) {
     if (!value) return;

@@ -19,7 +19,15 @@ export default async function DashboardPage({
   searchParams: Promise<SP>;
 }) {
   const sp = await searchParams;
-  const week = first(sp.topweek);
+
+  const weeks = recentWeekKeys(8).map((key) => ({
+    key,
+    label: formatWeekLabel(key),
+  }));
+  // v1.2 (item 10): Weekly Top Initiatives defaults to the current week; the
+  // user can still pick an older week or All-time from the selector.
+  const currentWeek = weeks[0]?.key;
+  const week = first(sp.topweek) ?? currentWeek;
 
   const [stats, top, session] = await Promise.all([
     dashboardStats(),
@@ -27,11 +35,6 @@ export default async function DashboardPage({
     readSession(),
   ]);
   const admin = isAdmin(session.role);
-
-  const weeks = recentWeekKeys(8).map((key) => ({
-    key,
-    label: formatWeekLabel(key),
-  }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -124,7 +127,11 @@ export default async function DashboardPage({
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Weekly Top Initiatives</h2>
-          <WeekSelector param="topweek" weeks={weeks} />
+          <WeekSelector
+            param="topweek"
+            weeks={weeks}
+            defaultValue={currentWeek}
+          />
         </div>
         <div className="rounded-lg border bg-card">
           {top.length === 0 ? (

@@ -355,6 +355,8 @@ export type ListFilters = {
   pillar?: string[];
   stage?: string[];
   category?: "Best Practice" | "Unlocking";
+  /** v1.2 (item 12, D19): action-items-done bucket. "—" (0 items) excluded. */
+  donePct?: "0" | "partial" | "100";
   q?: string;
   sort?: string; // column key
   dir?: "asc" | "desc";
@@ -373,6 +375,9 @@ export type ListRow = {
   hasUnlocking: boolean;
   hasBestPractice: boolean;
   lastEntryDate: string | null;
+  // v1.2 (item 12): action-item completion. Denominator excludes Withdrawn/Cancelled.
+  actionTotal: number;
+  actionDone: number;
 };
 
 const SORTABLE: Record<string, ReturnType<typeof sql>> = {
@@ -418,6 +423,14 @@ export async function listInitiatives(
     );
   }
 
+  if (filters.donePct) {
+    const done = sql`(SELECT count(*) FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status = 'Done')`;
+    const total = sql`(SELECT count(*) FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status <> 'Withdrawn/Cancelled')`;
+    if (filters.donePct === "0") conds.push(sql`${total} > 0 AND ${done} = 0`);
+    else if (filters.donePct === "100") conds.push(sql`${total} > 0 AND ${done} = ${total}`);
+    else conds.push(sql`${total} > 0 AND ${done} > 0 AND ${done} < ${total}`);
+  }
+
   const where = conds.length ? and(...conds) : undefined;
 
   const sortCol = SORTABLE[filters.sort ?? "id"] ?? SORTABLE.id;
@@ -446,6 +459,8 @@ export async function listInitiatives(
       lastEntryDate: sql<
         string | null
       >`(SELECT max(e.entry_date) FROM entries e WHERE e.initiative_id = initiatives.id)`,
+      actionTotal: sql<number>`(SELECT count(*)::int FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status <> 'Withdrawn/Cancelled')`,
+      actionDone: sql<number>`(SELECT count(*)::int FROM action_items a WHERE a.initiative_id = initiatives.id AND a.status = 'Done')`,
     })
     .from(initiatives)
     .where(where)

@@ -31,6 +31,13 @@ const COLUMNS: { key: string; label: string }[] = [
   { key: "stage", label: "Stage" },
 ];
 
+// v1.2 (item 12): action-items-done %. "—" when the initiative has no
+// (non-cancelled) action items — distinct from 0% (has items, none done).
+function donePctLabel(done: number, total: number): string {
+  if (total === 0) return "—";
+  return `${Math.round((done / total) * 100)}%`;
+}
+
 export default async function InitiativesPage({
   searchParams,
 }: {
@@ -47,6 +54,11 @@ export default async function InitiativesPage({
     categoryRaw === "Best Practice" || categoryRaw === "Unlocking"
       ? categoryRaw
       : undefined;
+  const doneRaw = first(sp.done);
+  const donePct =
+    doneRaw === "0" || doneRaw === "partial" || doneRaw === "100"
+      ? doneRaw
+      : undefined;
 
   const { rows, total } = await listInitiatives({
     region: list(sp.region),
@@ -54,6 +66,7 @@ export default async function InitiativesPage({
     pillar: list(sp.pillar),
     stage: list(sp.stage),
     category,
+    donePct,
     q: first(sp.q),
     sort,
     dir,
@@ -104,6 +117,7 @@ export default async function InitiativesPage({
                   </Link>
                 </TableHead>
               ))}
+              <TableHead className="text-right">Done</TableHead>
               <TableHead>Flags</TableHead>
             </TableRow>
           </TableHeader>
@@ -111,7 +125,7 @@ export default async function InitiativesPage({
             {rows.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={COLUMNS.length + 1}
+                  colSpan={COLUMNS.length + 2}
                   className="py-10 text-center text-muted-foreground"
                   data-testid="empty-state"
                 >
@@ -138,6 +152,17 @@ export default async function InitiativesPage({
                 </TableCell>
                 <TableCell>
                   <StageBadge stage={r.stage} />
+                </TableCell>
+                <TableCell
+                  className="text-right tabular-nums text-muted-foreground"
+                  title={
+                    r.actionTotal === 0
+                      ? "No action items"
+                      : `${r.actionDone} of ${r.actionTotal} action items done`
+                  }
+                  data-testid={`done-pct-${r.id}`}
+                >
+                  {donePctLabel(r.actionDone, r.actionTotal)}
                 </TableCell>
                 <TableCell className="space-x-1">
                   {r.hasUnlocking && (

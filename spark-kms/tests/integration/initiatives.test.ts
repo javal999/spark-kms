@@ -195,4 +195,72 @@ describe("initiatives service", () => {
       expect(desc.rows[0].title).toBe("Beta unlocking topic");
     });
   });
+
+  // v1.2 (item 12): action-items-done column + filter.
+  describe("listInitiatives action-items-done", () => {
+    async function markStatuses(initiativeId: number, statuses: string[]) {
+      const items = await db
+        .select()
+        .from(actionItems)
+        .where(eq(actionItems.initiativeId, initiativeId))
+        .orderBy(actionItems.id);
+      for (let i = 0; i < statuses.length; i++) {
+        await db
+          .update(actionItems)
+          .set({ status: statuses[i] as never })
+          .where(eq(actionItems.id, items[i].id));
+      }
+    }
+
+    it("reports actionDone/actionTotal and excludes cancelled from the total", async () => {
+      // 3 action items: 1 Done, 1 In Progress, 1 Withdrawn/Cancelled.
+      const res = await createInitiative(
+        { ...base, title: "Actiony", followUp: "1. a 2. b 3. c" },
+        actor,
+        { createActionItem: true },
+      );
+      await markStatuses(res.initiativeId, [
+        "Done",
+        "On Progress",
+        "Withdrawn/Cancelled",
+      ]);
+      const { rows } = await listInitiatives({ q: "Actiony" });
+      expect(rows[0].actionTotal).toBe(2); // cancelled excluded
+      expect(rows[0].actionDone).toBe(1);
+    });
+
+    it("filters by done bucket, excluding initiatives with no action items", async () => {
+      // none: an initiative with 0 action items (no follow-up action item).
+      await createInitiative({ ...base, title: "NoActions" }, actor);
+      // zero-done: 2 items, none done.
+      const zero = await createInitiative(
+        { ...base, title: "ZeroDone", followUp: "1. a 2. b" },
+        actor,
+        { createActionItem: true },
+      );
+      await markStatuses(zero.initiativeId, ["Not Started", "On Progress"]);
+      // partial: 2 items, 1 done.
+      const partial = await createInitiative(
+        { ...base, title: "PartialDone", followUp: "1. a 2. b" },
+        actor,
+        { createActionItem: true },
+      );
+      await markStatuses(partial.initiativeId, ["Done", "Not Started"]);
+      // complete: 2 items, both done.
+      const done = await createInitiative(
+        { ...base, title: "AllDone", followUp: "1. a 2. b" },
+        actor,
+        { createActionItem: true },
+      );
+      await markStatuses(done.initiativeId, ["Done", "Done"]);
+
+      const titles = async (donePct: "0" | "partial" | "100") =>
+        (await listInitiatives({ donePct })).rows.map((r) => r.title).sort();
+
+      expect(await titles("0")).toEqual(["ZeroDone"]);
+      expect(await titles("partial")).toEqual(["PartialDone"]);
+      expect(await titles("100")).toEqual(["AllDone"]);
+      // NoActions never appears in any bucket.
+    });
+  });
 });

@@ -24,10 +24,12 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-dvh">
       <Nav role={session.role} name={session.name} />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        {children}
+      <main className="min-w-0 flex-1">
+        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+          {children}
+        </div>
       </main>
     </div>
   );

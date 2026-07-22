@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { initiatives, people, tags, initiativeTags, initiativeLinks } from "@/src/db/schema";
 
@@ -180,6 +180,27 @@ export async function tagInitiatives(tagId: number): Promise<InitiativeBrief[]> 
     .innerJoin(initiativeTags, eq(initiativeTags.initiativeId, initiatives.id))
     .where(eq(initiativeTags.tagId, tagId))
     .orderBy(initiatives.id);
+}
+
+/** Tags that co-occur with `tagId` on the same initiatives (for the tag hub). */
+export async function adjacentTags(
+  tagId: number,
+): Promise<{ id: number; name: string; shared: number }[]> {
+  const rows = await db.execute(sql`
+    SELECT t2.id, t2.name, count(*)::int AS shared
+    FROM initiative_tags it1
+    JOIN initiative_tags it2
+      ON it2.initiative_id = it1.initiative_id AND it2.tag_id <> it1.tag_id
+    JOIN tags t2 ON t2.id = it2.tag_id
+    WHERE it1.tag_id = ${tagId}
+    GROUP BY t2.id, t2.name
+    ORDER BY shared DESC, t2.name
+  `);
+  return (rows as unknown as { id: number; name: string; shared: number }[]).map((r) => ({
+    id: Number(r.id),
+    name: r.name,
+    shared: Number(r.shared),
+  }));
 }
 
 /**

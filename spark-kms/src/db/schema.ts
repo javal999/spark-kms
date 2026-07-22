@@ -142,6 +142,11 @@ export const initiatives = pgTable(
     replicatedFrom: integer("replicated_from").references(
       (): AnyPgColumn => initiatives.id,
     ),
+    // Phase 8: resolved PIC → people row (backfilled from the free-text `pic`).
+    // Nullable during/after backfill; `pic` stays the denormalized display name.
+    picPersonId: integer("pic_person_id").references(
+      (): AnyPgColumn => people.id,
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -437,6 +442,41 @@ export const usageDaily = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 8: multi-entity knowledge graph (TRD-2026-011). Free tags become a
+// real node. `initiatives.tags[]` stays as a transition mirror. Additive.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Free tags (created on first use, case-insensitive), the graph's Tag node.
+export const tags = pgTable(
+  "tags",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("tags_name_lower_idx").using("btree", sql`lower(${t.name})`)],
+);
+
+// Initiative ↔ tag join (the source of truth once backfilled). unique per pair.
+export const initiativeTags = pgTable(
+  "initiative_tags",
+  {
+    initiativeId: integer("initiative_id")
+      .notNull()
+      .references(() => initiatives.id, { onDelete: "cascade" }),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    uniqueIndex("initiative_tags_pair_idx").on(t.initiativeId, t.tagId),
+    index("initiative_tags_tag_idx").on(t.tagId),
+  ],
+);
+
 // Convenience type exports for services.
 export type User = typeof users.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
@@ -451,3 +491,5 @@ export type NewInitiativeLink = typeof initiativeLinks.$inferInsert;
 export type UsageEvent = typeof usageEvents.$inferSelect;
 export type NewUsageEvent = typeof usageEvents.$inferInsert;
 export type UsageDaily = typeof usageDaily.$inferSelect;
+export type Tag = typeof tags.$inferSelect;
+export type InitiativeTag = typeof initiativeTags.$inferSelect;

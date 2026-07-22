@@ -5,6 +5,8 @@ import { getInitiativeEditLog } from "@/src/services/edits";
 import { initiativeStreamTotals } from "@/src/services/scores";
 import { readSession } from "@/src/lib/session";
 import { isAdmin } from "@/src/lib/session-config";
+import { flags } from "@/src/lib/flags";
+import { RelatedPanel } from "@/components/related-panel";
 import { StageControl } from "@/components/stage-control";
 import { CategoryBadge, StageBadge } from "@/components/badges";
 import {
@@ -125,6 +127,9 @@ export default async function InitiativeDetailPage({
           </div>
         </div>
       </section>
+
+      {/* Related initiatives (Phase 7, T10) — flag-gated. */}
+      {flags.graph && <RelatedPanel id={initiative.id} />}
 
       {/* Entry timeline — newest first, connected by a left rail. */}
       <section className="flex flex-col gap-4">

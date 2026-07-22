@@ -9,6 +9,8 @@ import {
   Trophy,
   PlusCircle,
   Settings,
+  Share2,
+  BarChart3,
   PanelLeftClose,
   PanelLeft,
   LogOut,
@@ -17,16 +19,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SparkMark } from "@/components/brand";
+import { flags } from "@/src/lib/flags";
 import type { Role } from "@/src/lib/session-config";
 
-const links: { href: string; label: string; minRole: Role; icon: LucideIcon }[] =
-  [
-    { href: "/", label: "Dashboard", minRole: "viewer", icon: LayoutDashboard },
-    { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
-    { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
-    { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
-    { href: "/admin", label: "Admin", minRole: "super", icon: Settings },
-  ];
+type NavLink = {
+  href: string;
+  label: string;
+  minRole: Role;
+  icon: LucideIcon;
+  flag?: keyof typeof flags;
+};
+
+const links: NavLink[] = [
+  { href: "/", label: "Dashboard", minRole: "viewer", icon: LayoutDashboard },
+  { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
+  { href: "/graph", label: "Graph", minRole: "viewer", icon: Share2, flag: "graph" },
+  { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
+  { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
+  { href: "/insights", label: "Insights", minRole: "admin", icon: BarChart3, flag: "tracking" },
+  { href: "/admin", label: "Admin", minRole: "super", icon: Settings },
+];
 
 function allowed(role: Role, min: Role): boolean {
   const rank: Record<Role, number> = { viewer: 0, admin: 1, super: 2 };
@@ -45,8 +57,11 @@ export function Nav({ role, name }: { role: Role; name?: string }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Read the persisted preference after mount (avoids SSR hydration mismatch).
+  // Read the persisted preference after mount (avoids an SSR hydration
+  // mismatch: the server can't know localStorage, so we start collapsed=false
+  // and reconcile on the client). Intentional post-mount setState.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
   }, []);
 
@@ -107,7 +122,7 @@ export function Nav({ role, name }: { role: Role; name?: string }) {
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2">
         {links
-          .filter((l) => allowed(role, l.minRole))
+          .filter((l) => allowed(role, l.minRole) && (!l.flag || flags[l.flag]))
           .map((l) => {
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
@@ -116,6 +131,7 @@ export function Nav({ role, name }: { role: Role; name?: string }) {
               <Link
                 key={l.href}
                 href={l.href}
+                data-track={`nav-${l.label.toLowerCase()}`}
                 title={collapsed ? l.label : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",

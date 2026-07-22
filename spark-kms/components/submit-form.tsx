@@ -371,6 +371,7 @@ export function SubmitForm() {
                 onClick={submitNew}
                 disabled={pending}
                 data-testid="submit-new"
+                data-track="create-initiative"
               >
                 {pending ? "Saving…" : "Create initiative"}
               </Button>

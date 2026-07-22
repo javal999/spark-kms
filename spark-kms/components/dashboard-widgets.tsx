@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** A single clickable metric. The number is never a dead end (council finding). */
+/**
+ * A single metric. Clickable when `href` is given (the number is never a dead
+ * end — council finding); a plain card otherwise (e.g. the usage insights KPIs).
+ */
 export function StatCard({
   label,
   value,
@@ -11,24 +14,30 @@ export function StatCard({
 }: {
   label: string;
   value: number;
-  href: string;
+  href?: string;
   hint?: string;
   emphasis?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex flex-col rounded-lg border bg-card p-4 transition-colors hover:border-foreground/30",
-        emphasis && "border-primary/30 bg-primary/[0.03]",
-      )}
-    >
+  const className = cn(
+    "group flex flex-col rounded-lg border bg-card p-4",
+    href && "transition-colors hover:border-foreground/30",
+    emphasis && "border-primary/30 bg-primary/[0.03]",
+  );
+  const inner = (
+    <>
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">
         {value}
       </span>
       {hint && <span className="mt-1 text-xs text-muted-foreground">{hint}</span>}
+    </>
+  );
+  return href ? (
+    <Link href={href} className={className}>
+      {inner}
     </Link>
+  ) : (
+    <div className={className}>{inner}</div>
   );
 }
 

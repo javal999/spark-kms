@@ -76,7 +76,7 @@ in Indonesian vs English, stay disconnected. Semantic links close that gap.
 
 ### How it works
 1. **Embed** each initiative (title + description + entries) into a vector via an embedding model. `[A: model + vendor undecided — Claude/OpenAI/local; cost per initiative to confirm]`
-2. **Store** the vector with **pgvector**. `[S: trd §Phase-2 reserved; O2: confirm pgvector on the Lightsail Postgres — not yet verified]`
+2. **Store** the vector with **pgvector**. `[V: pgvector 0.8.2 available + installed on the production Lightsail Postgres, verified 2026-07-22]`
 3. **Compare** by cosine similarity → candidate edges of type `derived_similar`, with the similarity as `weight`. Both the type and the column already exist, unused. `[S: src/db/schema.ts]`
 4. **Human-confirm, never auto-merge** — a suggestion an admin accepts (→ a real edge) or dismisses, reusing the existing duplicate-review pattern. `[S: src/services/duplicates.ts, components/bulk-upload.tsx]`
 
@@ -85,7 +85,7 @@ in Indonesian vs English, stay disconnected. Semantic links close that gap.
 - "Find similar initiatives" even when nobody tagged them — the graph stops depending on people tagging consistently.
 
 ### What it takes
-1. **Confirm pgvector** is available on the AWS Postgres (this is open question O2). `[A: Lightsail postgres_16 — verify the extension]`
+1. ~~**Confirm pgvector**~~ **DONE** — pgvector 0.8.2 available + installed on production. `[V: verified 2026-07-22]`
 2. **Embedding pipeline** — compute + store on create/append (async job). No LLM/vector dependency exists in the app yet, so this is net-new. `[S: package.json — none installed]`
 3. **Candidate generation** — nightly or on-demand similarity query above a threshold.
 4. **Admin confirm UI** — reuse the dedup-review component.
@@ -108,6 +108,6 @@ They're independent; either can go first. **Recommendation: Part 1 first** (self
 |---|---|---|
 | G1 | Is the target the full entity graph, or is initiative-to-initiative enough for now? | Levi |
 | G2 | Canonical tags — controlled vocabulary, or free tags with synonym-merging? | Levi |
-| G3 | pgvector availability + version on the Lightsail Postgres (O2) | Eng/IT |
+| ~~G3~~ | ~~pgvector availability on the Lightsail Postgres (O2)~~ — **RESOLVED: pgvector 0.8.2 available + installed, 2026-07-22** | Eng/IT |
 | G4 | Embedding model + vendor + cost per initiative | Levi + Eng |
 | G5 | Does linking people-as-nodes reopen the tracking/privacy concern (a person's full activity is now one click)? | Levi + IT/HR |

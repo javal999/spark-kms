@@ -292,6 +292,41 @@ export async function neighbors2hop(id: number): Promise<number[]> {
   return [...seen].sort((a, b) => a - b);
 }
 
+/**
+ * The 1–2 hop ego subgraph around one initiative: the node, its neighbors, and
+ * the edges among that set. For the detail-page ego graph (T11).
+ */
+export async function egoGraph(
+  id: number,
+): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
+  const { nodes, edges } = await buildGraph();
+  const adj = new Map<number, Set<number>>();
+  const link = (a: number, b: number) => {
+    (adj.get(a) ?? adj.set(a, new Set()).get(a)!).add(b);
+    (adj.get(b) ?? adj.set(b, new Set()).get(b)!).add(a);
+  };
+  for (const e of edges) link(e.srcId, e.dstId);
+
+  const inSet = new Set<number>([id]);
+  let frontier = [id];
+  for (let hop = 0; hop < 2; hop++) {
+    const next: number[] = [];
+    for (const n of frontier) {
+      for (const m of adj.get(n) ?? []) {
+        if (!inSet.has(m)) {
+          inSet.add(m);
+          next.push(m);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return {
+    nodes: nodes.filter((n) => inSet.has(n.id)),
+    edges: edges.filter((e) => inSet.has(e.srcId) && inSet.has(e.dstId)),
+  };
+}
+
 /** Initiatives with no edge of any kind (explicit, co_tag, or replicated_from). */
 export async function orphanIds(): Promise<number[]> {
   const { nodes, edges } = await buildGraph();

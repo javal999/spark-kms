@@ -9,6 +9,7 @@ import {
   Trophy,
   PlusCircle,
   Settings,
+  Share2,
   BarChart3,
   PanelLeftClose,
   PanelLeft,
@@ -32,6 +33,7 @@ type NavLink = {
 const links: NavLink[] = [
   { href: "/", label: "Dashboard", minRole: "viewer", icon: LayoutDashboard },
   { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
+  { href: "/graph", label: "Graph", minRole: "viewer", icon: Share2, flag: "graph" },
   { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
   { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
   { href: "/insights", label: "Insights", minRole: "admin", icon: BarChart3, flag: "tracking" },

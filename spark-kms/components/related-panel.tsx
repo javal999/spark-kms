@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { relatedInitiatives } from "@/src/services/links";
+import { relatedInitiatives, egoGraph } from "@/src/services/links";
 import { Badge } from "@/components/ui/badge";
+import { GraphCanvas } from "@/components/graph-canvas";
 
 const TYPE_LABEL: Record<string, string> = {
   explicit: "Linked",
@@ -15,7 +16,9 @@ const TYPE_LABEL: Record<string, string> = {
  * Rendered only when the graph flag is on.
  */
 export async function RelatedPanel({ id }: { id: number }) {
-  const related = await relatedInitiatives(id);
+  const [related, ego] = await Promise.all([relatedInitiatives(id), egoGraph(id)]);
+  // Only worth drawing when this initiative actually has neighbors.
+  const hasGraph = ego.nodes.length > 1;
 
   return (
     <section className="flex flex-col gap-3" data-track="related-panel">
@@ -53,6 +56,10 @@ export async function RelatedPanel({ id }: { id: number }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {hasGraph && (
+        <GraphCanvas nodes={ego.nodes} edges={ego.edges} height={340} />
       )}
     </section>
   );

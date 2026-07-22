@@ -11,6 +11,7 @@ import {
   neighbors2hop,
   orphanIds,
   buildGraph,
+  egoGraph,
   relatedInitiatives,
   SelfLinkError,
   DuplicateLinkError,
@@ -130,6 +131,18 @@ describe("links service (T5–T8)", () => {
     await createExplicitLink(A, B, actor);
     // A's neighbors: B (explicit + co_tag) and D (replicated_from). 2-hop adds none.
     expect(await neighbors2hop(A)).toEqual([B, D].sort((a, b) => a - b));
+  });
+
+  it("egoGraph returns the initiative + its neighborhood only (T11)", async () => {
+    await createExplicitLink(A, B, actor);
+    const ego = await egoGraph(A);
+    const ids = ego.nodes.map((n) => n.id).sort((x, y) => x - y);
+    // A plus its neighbors B (explicit/co_tag) and D (replicated_from); not C.
+    expect(ids).toEqual([A, B, D].sort((x, y) => x - y));
+    expect(ego.nodes.some((n) => n.id === C)).toBe(false);
+    // Every returned edge stays within the ego node set.
+    const inSet = new Set(ids);
+    expect(ego.edges.every((e) => inSet.has(e.srcId) && inSet.has(e.dstId))).toBe(true);
   });
 
   it("buildGraph respects the region filter and drops edges to excluded nodes (T9)", async () => {

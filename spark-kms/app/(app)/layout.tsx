@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { readSession } from "@/src/lib/session";
 import { getViewerEpoch } from "@/src/services/auth";
 import { Nav } from "@/components/nav";
+import { UsageTracker } from "@/components/usage-tracker";
 
 /**
  * Shell for all authenticated pages. The proxy already gates these routes;
@@ -25,6 +26,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh">
+      <UsageTracker />
       <Nav role={session.role} name={session.name} />
       <main className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">

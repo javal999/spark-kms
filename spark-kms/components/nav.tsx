@@ -116,6 +116,7 @@ export function Nav({ role, name }: { role: Role; name?: string }) {
               <Link
                 key={l.href}
                 href={l.href}
+                data-track={`nav-${l.label.toLowerCase()}`}
                 title={collapsed ? l.label : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",

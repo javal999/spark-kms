@@ -131,4 +131,18 @@ describe("links service (T5–T8)", () => {
     // A's neighbors: B (explicit + co_tag) and D (replicated_from). 2-hop adds none.
     expect(await neighbors2hop(A)).toEqual([B, D].sort((a, b) => a - b));
   });
+
+  it("buildGraph respects the region filter and drops edges to excluded nodes (T9)", async () => {
+    // E shares "activation" with A but lives in a different region.
+    const E = await insertIni(actor, { title: "Echo elsewhere", tags: ["activation"] });
+    await db.update(initiatives).set({ region: "Sumatera" }).where(eq(initiatives.id, E));
+
+    const sumatera = await buildGraph({ region: ["Sumatera"] });
+    expect(sumatera.nodes.map((n) => n.id)).toEqual([E]);
+
+    const jakarta = await buildGraph({ region: ["Jakarta Greater"] });
+    expect(jakarta.nodes.some((n) => n.id === E)).toBe(false);
+    // The A–E co_tag edge is dropped because E is outside the filtered set.
+    expect(jakarta.edges.some((e) => e.srcId === E || e.dstId === E)).toBe(false);
+  });
 });

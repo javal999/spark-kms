@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { initiativeLinks, initiatives } from "@/src/db/schema";
 
@@ -103,6 +103,18 @@ export async function deleteExplicitLink(id: number): Promise<void> {
   await db
     .delete(initiativeLinks)
     .where(and(eq(initiativeLinks.id, id), eq(initiativeLinks.type, "explicit")));
+}
+
+/** Delete the explicit edge between two initiatives, in either direction. */
+export async function deleteExplicitBetween(a: number, b: number): Promise<void> {
+  await db
+    .delete(initiativeLinks)
+    .where(
+      and(
+        eq(initiativeLinks.type, "explicit"),
+        sql`((src_id = ${a} AND dst_id = ${b}) OR (src_id = ${b} AND dst_id = ${a}))`,
+      ),
+    );
 }
 
 // ── Graph construction (explicit + derived) ─────────────────────────────────

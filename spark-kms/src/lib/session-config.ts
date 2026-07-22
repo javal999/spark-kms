@@ -14,6 +14,8 @@ export interface SessionData {
   name?: string;
   /** Viewer-password rotation epoch sealed at login; stale = logged out (REQ-A1). */
   viewerEpoch?: number;
+  /** Opaque per-session id for pseudonymous usage tracking (Phase 7); set lazily. */
+  sid?: string;
 }
 
 // Sessions: 30 days viewers, 7 days admins (REQ-A4).

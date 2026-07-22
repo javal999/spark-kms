@@ -8,6 +8,7 @@ import {
   jsonb,
   date,
   timestamp,
+  real,
   index,
   uniqueIndex,
   type AnyPgColumn,
@@ -344,6 +345,98 @@ export const people = pgTable(
   (t) => [uniqueIndex("people_name_lower_idx").using("btree", sql`lower(${t.name})`)],
 );
 
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 7: knowledge graph + usage tracking (TRD-2026-009). All additive —
+// three new tables, no changes to existing ones. Rollback = drop these three.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Edge types between initiatives. `derived_similar` (+ weight) is reserved for
+// Phase 2 (AI relations) and is unused in Phase 1.
+export const linkTypeEnum = pgEnum("link_type", [
+  "explicit",
+  "co_tag",
+  "replicated_from",
+  "derived_similar",
+]);
+
+export const usageEventTypeEnum = pgEnum("usage_event_type", [
+  "page_view",
+  "click",
+]);
+
+// Graph edge list (T5). Directed src→dst. Explicit edges are stored; co_tag and
+// replicated_from are DERIVED at read time (not persisted) — only explicit and
+// the Phase-2 derived_similar rows ever live here. unique(src,dst,type) blocks
+// duplicate edges; the service also guards src≠dst.
+export const initiativeLinks = pgTable(
+  "initiative_links",
+  {
+    id: serial("id").primaryKey(),
+    srcId: integer("src_id")
+      .notNull()
+      .references(() => initiatives.id, { onDelete: "cascade" }),
+    dstId: integer("dst_id")
+      .notNull()
+      .references(() => initiatives.id, { onDelete: "cascade" }),
+    type: linkTypeEnum("type").notNull(),
+    // Reserved for Phase 2 derived_similar (similarity 0–1); null for explicit.
+    weight: real("weight"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: integer("created_by").references(() => users.id),
+  },
+  (t) => [
+    uniqueIndex("initiative_links_edge_idx").on(t.srcId, t.dstId, t.type),
+    index("initiative_links_src_idx").on(t.srcId),
+    index("initiative_links_dst_idx").on(t.dstId),
+  ],
+);
+
+// Append-only usage ledger (T1), mirroring score_events. NO PII: no ip, email,
+// user_agent, or raw user id — actorHash is a keyed pseudonym; sessionId is a
+// per-session opaque id. Raw rows expire at 90 days (retention job, T4).
+export const usageEvents = pgTable(
+  "usage_events",
+  {
+    id: serial("id").primaryKey(),
+    eventType: usageEventTypeEnum("event_type").notNull(),
+    // Grouped route (e.g. "/initiatives/[id]"), never the concrete id path.
+    routePattern: text("route_pattern").notNull(),
+    path: text("path"),
+    elementId: text("element_id"),
+    elementText: text("element_text"),
+    sessionId: text("session_id").notNull(),
+    actorHash: text("actor_hash").notNull(),
+    ts: timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
+    viewportW: integer("viewport_w"),
+    viewportH: integer("viewport_h"),
+    clickXNorm: real("click_x_norm"),
+    clickYNorm: real("click_y_norm"),
+    referrerPath: text("referrer_path"),
+  },
+  (t) => [
+    index("usage_events_route_idx").on(t.routePattern),
+    index("usage_events_ts_idx").on(t.ts),
+    index("usage_events_element_idx").on(t.elementId),
+  ],
+);
+
+// Nightly rollup (T4). Survives the 90-day raw-row deletion so trends persist.
+export const usageDaily = pgTable(
+  "usage_daily",
+  {
+    id: serial("id").primaryKey(),
+    day: date("day").notNull(),
+    routePattern: text("route_pattern").notNull(),
+    eventType: usageEventTypeEnum("event_type").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("usage_daily_bucket_idx").on(t.day, t.routePattern, t.eventType),
+  ],
+);
+
 // Convenience type exports for services.
 export type User = typeof users.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
@@ -353,3 +446,8 @@ export type NewEntry = typeof entries.$inferInsert;
 export type ActionItem = typeof actionItems.$inferSelect;
 export type ScoreEvent = typeof scoreEvents.$inferSelect;
 export type NewScoreEvent = typeof scoreEvents.$inferInsert;
+export type InitiativeLink = typeof initiativeLinks.$inferSelect;
+export type NewInitiativeLink = typeof initiativeLinks.$inferInsert;
+export type UsageEvent = typeof usageEvents.$inferSelect;
+export type NewUsageEvent = typeof usageEvents.$inferInsert;
+export type UsageDaily = typeof usageDaily.$inferSelect;

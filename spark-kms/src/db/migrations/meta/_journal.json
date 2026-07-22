@@ -36,6 +36,13 @@
       "when": 1784693773223,
       "tag": "0004_left_red_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784704167917,
+      "tag": "0005_rich_betty_brant",
+      "breakpoints": true
     }
   ]
 }

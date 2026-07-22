@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { REGIONS, SEGMENTS, PILLARS } from "@/src/lib/enums";
 
+// Phase 8: node-type filter for the entity graph.
+const NODE_TYPES = ["initiative", "person", "tag", "pillar", "region", "segment"] as const;
+
 /** Region/segment/pillar chip filters for the graph explorer (T12), URL-driven. */
 export function GraphFilters() {
   const router = useRouter();
@@ -29,6 +32,7 @@ export function GraphFilters() {
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
+      <Row label="Show" options={NODE_TYPES} sel={current("types")} onToggle={(v) => toggle("types", v)} />
       <Row label="Region" options={REGIONS} sel={current("region")} onToggle={(v) => toggle("region", v)} />
       <Row label="Segment" options={SEGMENTS} sel={current("segment")} onToggle={(v) => toggle("segment", v)} />
       <Row label="Pillar" options={PILLARS} sel={current("pillar")} onToggle={(v) => toggle("pillar", v)} />

@@ -12,6 +12,7 @@ config({ path: ".env" });
 export async function truncateAll() {
   await db.execute(sql`
     TRUNCATE TABLE
+      initiative_tags, tags,
       initiative_links, usage_events, usage_daily,
       score_events, stage_changes, action_items, entries, edit_log,
       upload_batches, api_keys, people, initiatives, users, app_config

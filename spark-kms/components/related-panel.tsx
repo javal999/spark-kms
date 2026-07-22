@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { relatedInitiatives, egoGraph } from "@/src/services/links";
+import { initiativeEntities } from "@/src/services/graph";
 import { Badge } from "@/components/ui/badge";
 import { GraphCanvas } from "@/components/graph-canvas";
 
@@ -16,13 +17,45 @@ const TYPE_LABEL: Record<string, string> = {
  * Rendered only when the graph flag is on.
  */
 export async function RelatedPanel({ id }: { id: number }) {
-  const [related, ego] = await Promise.all([relatedInitiatives(id), egoGraph(id)]);
+  const [related, ego, entities] = await Promise.all([
+    relatedInitiatives(id),
+    egoGraph(id),
+    initiativeEntities(id),
+  ]);
   // Only worth drawing when this initiative actually has neighbors.
   const hasGraph = ego.nodes.length > 1;
 
   return (
     <section className="flex flex-col gap-3" data-track="related-panel">
       <h2 className="text-lg font-medium">Related initiatives</h2>
+
+      {(entities.person || entities.tags.length > 0) && (
+        <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm">
+          {entities.person && (
+            <div className="flex items-center gap-2">
+              <span className="w-16 text-muted-foreground">People</span>
+              <Link
+                href={`/people/${entities.person.id}`}
+                className="font-medium hover:underline"
+              >
+                {entities.person.name}
+              </Link>
+            </div>
+          )}
+          {entities.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-16 text-muted-foreground">Themes</span>
+              {entities.tags.map((t) => (
+                <Link key={t.id} href={`/tags/${t.id}`}>
+                  <Badge variant="outline" className="hover:bg-muted">
+                    {t.name}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {related.length === 0 ? (
         <div
           className="rounded-lg border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground"

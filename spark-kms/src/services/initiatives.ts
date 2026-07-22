@@ -13,6 +13,7 @@ import type {
 import { award } from "@/src/services/scoring";
 import { splitFollowUp } from "@/src/lib/follow-up";
 import { upsertByName } from "@/src/services/people";
+import { addInitiativeTags } from "@/src/services/tags";
 
 /**
  * Initiative + entry CRUD (Phase 1). NOTE: scoring is Phase 2 — nothing here
@@ -65,6 +66,10 @@ export async function createInitiativeInTx(
   opts: CreateOpts = {},
 ): Promise<CreateInitiativeResult> {
   {
+    // v1.2 (D9): add the PIC to the people directory (find-or-create).
+    // Phase 8 (E11): capture the person id so the initiative resolves its PIC.
+    const picPersonId = await upsertByName(input.pic, actorId, tx);
+
     const [ini] = await tx
       .insert(initiatives)
       .values({
@@ -75,13 +80,14 @@ export async function createInitiativeInTx(
         pillar: input.pillar,
         stage: input.stage,
         pic: input.pic,
+        picPersonId,
         tags: input.tags,
         createdBy: actorId,
       })
       .returning({ id: initiatives.id });
 
-    // v1.2 (D9): add the PIC to the people directory (find-or-create).
-    await upsertByName(input.pic, actorId, tx);
+    // Phase 8 (E11): write tags through the join too (tags[] mirror kept).
+    await addInitiativeTags(tx, ini.id, input.tags);
 
     const [entry] = await tx
       .insert(entries)

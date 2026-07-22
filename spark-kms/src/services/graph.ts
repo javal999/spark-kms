@@ -182,6 +182,37 @@ export async function tagInitiatives(tagId: number): Promise<InitiativeBrief[]> 
     .orderBy(initiatives.id);
 }
 
+/** One initiative's entity connections (person + tags) for the detail panel (E10). */
+export async function initiativeEntities(initiativeId: number): Promise<{
+  person: { id: number; name: string } | null;
+  tags: { id: number; name: string }[];
+}> {
+  const [ini] = await db
+    .select({ picPersonId: initiatives.picPersonId })
+    .from(initiatives)
+    .where(eq(initiatives.id, initiativeId))
+    .limit(1);
+
+  let person: { id: number; name: string } | null = null;
+  if (ini?.picPersonId) {
+    const [p] = await db
+      .select({ id: people.id, name: people.name })
+      .from(people)
+      .where(eq(people.id, ini.picPersonId))
+      .limit(1);
+    person = p ?? null;
+  }
+
+  const tagRows = await db
+    .select({ id: tags.id, name: tags.name })
+    .from(initiativeTags)
+    .innerJoin(tags, eq(tags.id, initiativeTags.tagId))
+    .where(eq(initiativeTags.initiativeId, initiativeId))
+    .orderBy(tags.name);
+
+  return { person, tags: tagRows };
+}
+
 /** Tags that co-occur with `tagId` on the same initiatives (for the tag hub). */
 export async function adjacentTags(
   tagId: number,

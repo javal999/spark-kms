@@ -13,6 +13,14 @@ RUN npm ci
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Phase 7 feature flags. NEXT_PUBLIC_* are inlined into the client bundle at
+# build time, so they must be present here (not just at runtime). Default 0
+# (off); the deploy passes --build-arg to turn a feature on. The runtime
+# deployment env must set the SAME values for the server-side reads.
+ARG NEXT_PUBLIC_FEATURE_GRAPH=0
+ARG NEXT_PUBLIC_FEATURE_TRACKING=0
+ENV NEXT_PUBLIC_FEATURE_GRAPH=$NEXT_PUBLIC_FEATURE_GRAPH
+ENV NEXT_PUBLIC_FEATURE_TRACKING=$NEXT_PUBLIC_FEATURE_TRACKING
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

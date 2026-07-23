@@ -33,7 +33,10 @@ export function WeekSelector({
   function change(value: string | null) {
     if (!value) return;
     const next = new URLSearchParams(search.toString());
-    if (value === ALL) next.delete(param);
+    // Drop the param only for the default selection (clean URL). Any other
+    // choice — including All-time when the default is a specific week — is set
+    // explicitly, so "All-time" stays reachable on pages that default to a week.
+    if (value === defaultValue) next.delete(param);
     else next.set(param, value);
     router.push(next.toString() ? `${pathname}?${next.toString()}` : pathname);
   }

@@ -25,9 +25,12 @@ export default async function DashboardPage({
     label: formatWeekLabel(key),
   }));
   // v1.2 (item 10): Weekly Top Initiatives defaults to the current week; the
-  // user can still pick an older week or All-time from the selector.
+  // user can still pick an older week or All-time from the selector. Absent
+  // param → current week (default); explicit "all-time" → all-time (undefined).
   const currentWeek = weeks[0]?.key;
-  const week = first(sp.topweek) ?? currentWeek;
+  const topweekParam = first(sp.topweek);
+  const week =
+    topweekParam === "all-time" ? undefined : (topweekParam ?? currentWeek);
 
   const [stats, top, session] = await Promise.all([
     dashboardStats(),

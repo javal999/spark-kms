@@ -44,6 +44,51 @@ export const stubEmbedder: Embedder = {
   },
 };
 
+// ── OpenRouter embedder (production; G4 = cloud API) ────────────────────────
+// OpenAI-compatible /embeddings endpoint. The API key comes from the
+// environment (OPENROUTER_API_KEY) — set it in .env locally and the Lightsail
+// deployment env in prod. Model override via OPENROUTER_EMBED_MODEL.
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/embeddings";
+const DEFAULT_EMBED_MODEL = "openai/text-embedding-3-small";
+
+export function openRouterEmbedder(opts: { model?: string; apiKey?: string } = {}): Embedder {
+  const model = opts.model ?? process.env.OPENROUTER_EMBED_MODEL ?? DEFAULT_EMBED_MODEL;
+  const apiKey = opts.apiKey ?? process.env.OPENROUTER_API_KEY;
+  return {
+    id: `openrouter:${model}`,
+    async embed(text: string): Promise<number[]> {
+      if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+          "x-title": "SPARK KMS",
+        },
+        body: JSON.stringify({ model, input: text, encoding_format: "float" }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`OpenRouter embeddings failed: ${res.status} ${body}`.trim());
+      }
+      const json = (await res.json()) as { data?: { embedding?: number[] }[] };
+      const vec = json?.data?.[0]?.embedding;
+      if (!Array.isArray(vec) || vec.length === 0) {
+        throw new Error("OpenRouter embeddings: no vector in response");
+      }
+      return vec;
+    },
+  };
+}
+
+/**
+ * The embedder to use when none is passed: OpenRouter when a key is configured
+ * (prod), else the deterministic stub (tests / local dev without a key).
+ */
+export function getEmbedder(): Embedder {
+  return process.env.OPENROUTER_API_KEY ? openRouterEmbedder() : stubEmbedder;
+}
+
 export function cosine(a: number[], b: number[]): number {
   if (a.length !== b.length) return 0;
   let dot = 0;
@@ -65,7 +110,7 @@ function initiativeText(row: { title: string; description: string | null }): str
 /** Embed one initiative (upsert). Returns the stored vector length. */
 export async function embedInitiative(
   initiativeId: number,
-  embedder: Embedder = stubEmbedder,
+  embedder: Embedder = getEmbedder(),
 ): Promise<number> {
   const [row] = await db
     .select({ title: initiatives.title, description: initiatives.description })
@@ -85,7 +130,7 @@ export async function embedInitiative(
 }
 
 /** Embed every initiative (backfill / re-embed on model change). */
-export async function embedAll(embedder: Embedder = stubEmbedder): Promise<number> {
+export async function embedAll(embedder: Embedder = getEmbedder()): Promise<number> {
   const rows = await db.select({ id: initiatives.id }).from(initiatives);
   for (const r of rows) await embedInitiative(r.id, embedder);
   return rows.length;

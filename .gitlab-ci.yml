@@ -1,0 +1,31 @@
+# GitLab CI — SPARK KMS
+#
+# Single purpose: fire the nightly usage rollup + 90-day retention endpoint.
+# The `workflow` rule means a pipeline is created ONLY for SCHEDULED runs, so
+# ordinary git pushes add zero CI overhead (no build/test jobs run on push).
+#
+# Setup (see docs/ops-usage-retention.md):
+#   1. Settings → CI/CD → Variables: add CRON_SECRET (masked + protected),
+#      value = the same secret set in the Lightsail deployment env.
+#   2. Build → Pipeline schedules → New schedule: e.g. cron "0 20 * * *"
+#      (daily 20:00 UTC), target branch = main.
+#   3. Run the schedule once (Play) to confirm the job succeeds.
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+usage-retention:
+  image: alpine:3.20
+  script:
+    - apk add --no-cache curl
+    - |
+      if [ -z "$CRON_SECRET" ]; then
+        echo "CRON_SECRET is not set — add it as a CI/CD variable." >&2
+        exit 1
+      fi
+      # -f fails the job on any HTTP error (e.g. 401 = wrong secret), so a
+      # misconfiguration shows up as a red pipeline instead of a silent no-op.
+      curl -fsS --retry 2 --max-time 120 -X POST \
+        -H "Authorization: Bearer ${CRON_SECRET}" \
+        https://kms.paracorplabs.com/api/cron/retention

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { relatedInitiatives, egoGraph } from "@/src/services/links";
 import { initiativeEntities } from "@/src/services/graph";
+import { listSuggestions } from "@/src/services/suggestions";
 import { Badge } from "@/components/ui/badge";
 import { GraphCanvas } from "@/components/graph-canvas";
+import { SuggestedConnections } from "@/components/suggested-connections";
 
 const TYPE_LABEL: Record<string, string> = {
   explicit: "Linked",
@@ -16,11 +18,12 @@ const TYPE_LABEL: Record<string, string> = {
  * initiative. Shows an empty state (not an error) when there are no relations.
  * Rendered only when the graph flag is on.
  */
-export async function RelatedPanel({ id }: { id: number }) {
-  const [related, ego, entities] = await Promise.all([
+export async function RelatedPanel({ id, admin = false }: { id: number; admin?: boolean }) {
+  const [related, ego, entities, suggestions] = await Promise.all([
     relatedInitiatives(id),
     egoGraph(id),
     initiativeEntities(id),
+    admin ? listSuggestions(id) : Promise.resolve([]),
   ]);
   // Only worth drawing when this initiative actually has neighbors.
   const hasGraph = ego.nodes.length > 1;
@@ -28,6 +31,10 @@ export async function RelatedPanel({ id }: { id: number }) {
   return (
     <section className="flex flex-col gap-3" data-track="related-panel">
       <h2 className="text-lg font-medium">Related initiatives</h2>
+
+      {admin && suggestions.length > 0 && (
+        <SuggestedConnections initiativeId={id} suggestions={suggestions} />
+      )}
 
       {(entities.person || entities.tags.length > 0) && (
         <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm">

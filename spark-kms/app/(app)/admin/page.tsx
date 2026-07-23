@@ -5,16 +5,19 @@ import { listPeople } from "@/src/services/people";
 import {
   UsersPanel,
   PeoplePanel,
+  AiLinksPanel,
   ViewerPasswordPanel,
   ScoringPanel,
   ApiKeysPanel,
 } from "@/components/admin-console";
 import { AdminSectionNav, type AdminSection } from "@/components/admin-section-nav";
+import { flags } from "@/src/lib/flags";
 
 const SECTIONS: AdminSection[] = [
   { id: "scoring", label: "Adjustments" },
   { id: "admins", label: "Admins" },
   { id: "people", label: "PIC directory" },
+  ...(flags.graph ? [{ id: "ai-links", label: "AI connections" }] : []),
   { id: "api-keys", label: "API keys" },
   { id: "viewer-password", label: "Viewer password" },
   { id: "template", label: "Template" },
@@ -47,6 +50,11 @@ export default async function AdminPage() {
       <section id="people" className="scroll-mt-28">
         <PeoplePanel people={people} />
       </section>
+      {flags.graph && (
+        <section id="ai-links" className="scroll-mt-28">
+          <AiLinksPanel />
+        </section>
+      )}
       <section id="api-keys" className="scroll-mt-28">
         <ApiKeysPanel
           apiKeys={apiKeys.map((k) => ({

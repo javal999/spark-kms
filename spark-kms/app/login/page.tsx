@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SparkMark } from "@/components/brand";
+import { flags } from "@/src/lib/flags";
 
 type Mode = "viewer" | "admin";
 
@@ -100,6 +101,15 @@ function LoginForm() {
       >
         {mode === "viewer" ? "Admin sign in →" : "← Viewer password"}
       </button>
+
+      {flags.tracking && (
+        <p className="mt-8 border-t pt-4 text-xs leading-relaxed text-muted-foreground">
+          SPARK measures page and feature usage to improve the tool. This is
+          aggregated and pseudonymous — no personal identifiers are stored, and
+          no one can view another person&apos;s activity. Raw data is deleted
+          after 90 days.
+        </p>
+      )}
     </div>
   );
 }

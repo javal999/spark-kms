@@ -13,6 +13,8 @@ RUN npm ci
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Headroom for `next build` (react-force-graph/recharts push heap up).
+ENV NODE_OPTIONS=--max-old-space-size=4096
 # Phase 7 feature flags. NEXT_PUBLIC_* are inlined into the client bundle at
 # build time, so they must be present here (not just at runtime). Default 0
 # (off); the deploy passes --build-arg to turn a feature on. The runtime

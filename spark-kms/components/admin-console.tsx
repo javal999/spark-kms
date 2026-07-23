@@ -114,6 +114,55 @@ export function UsersPanel({ admins }: { admins: Admin[] }) {
   );
 }
 
+/**
+ * Phase 9: embed the corpus + regenerate AI link suggestions. Uses the cloud
+ * embedder when OPENROUTER_API_KEY is set (costs per initiative), else the stub.
+ */
+export function AiLinksPanel() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    embedded: number;
+    suggestionsCreated: number;
+    model: string;
+  } | null>(null);
+
+  async function refresh() {
+    setBusy(true);
+    const { ok, data } = await postJSON("/api/admin/ai-links/refresh", {});
+    setBusy(false);
+    if (!ok) return toast.error(data.error ?? "Failed");
+    setResult(data);
+    toast.success(`Embedded ${data.embedded} · ${data.suggestionsCreated} new suggestions`);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>AI connections</CardTitle>
+        <CardDescription>
+          Embed every initiative, then suggest semantically-similar links for
+          admins to confirm on each detail page. Suggestions are never
+          auto-linked.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div>
+          <Button onClick={refresh} disabled={busy} data-testid="refresh-ai-links">
+            {busy ? "Working…" : "Embed + refresh suggestions"}
+          </Button>
+        </div>
+        {result && (
+          <p className="text-sm text-muted-foreground">
+            Embedded {result.embedded} initiatives with{" "}
+            <span className="font-mono">{result.model}</span> ·{" "}
+            {result.suggestionsCreated} new suggestions.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 type Person = { id: number; name: string; active: boolean };
 
 /**

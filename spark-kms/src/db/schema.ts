@@ -477,6 +477,23 @@ export const initiativeTags = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 9: AI-discovered links (graph-future-phases Part 2). One embedding per
+// initiative, stored dimension-agnostically as a float array so the model
+// choice (G4) stays deferred. Brute-force cosine in memory is instant at our
+// scale; migrate to pgvector `vector(N)` only if the corpus outgrows it.
+// ─────────────────────────────────────────────────────────────────────────
+export const initiativeEmbeddings = pgTable("initiative_embeddings", {
+  initiativeId: integer("initiative_id")
+    .primaryKey()
+    .references(() => initiatives.id, { onDelete: "cascade" }),
+  embedding: real("embedding").array().notNull(),
+  model: text("model").notNull(), // which embedder produced it (for re-embeds)
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // Convenience type exports for services.
 export type User = typeof users.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
@@ -493,3 +510,4 @@ export type NewUsageEvent = typeof usageEvents.$inferInsert;
 export type UsageDaily = typeof usageDaily.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type InitiativeTag = typeof initiativeTags.$inferSelect;
+export type InitiativeEmbedding = typeof initiativeEmbeddings.$inferSelect;

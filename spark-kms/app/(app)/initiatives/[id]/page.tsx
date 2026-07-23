@@ -129,7 +129,7 @@ export default async function InitiativeDetailPage({
       </section>
 
       {/* Related initiatives (Phase 7, T10) — flag-gated. */}
-      {flags.graph && <RelatedPanel id={initiative.id} />}
+      {flags.graph && <RelatedPanel id={initiative.id} admin={admin} />}
 
       {/* Entry timeline — newest first, connected by a left rail. */}
       <section className="flex flex-col gap-4">

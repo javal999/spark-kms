@@ -46,3 +46,7 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# understand-anything knowledge graph
+.ua/
+.understand-anything/

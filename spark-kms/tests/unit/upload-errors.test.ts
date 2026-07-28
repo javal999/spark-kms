@@ -68,6 +68,23 @@ describe("failureMessage", () => {
     expect(m.title).toContain("418");
     expect(m.description).toBeTruthy();
   });
+
+  it("surfaces a server traceId in the 500 message so users can quote it", async () => {
+    // 500 with no server `error` text but a captured traceId (the exact case
+    // the observability change produces: generic body + { traceId }).
+    const m = await failureMessage(
+      jsonRes(500, { error: undefined, traceId: "err_abc123def456" }),
+      "import",
+    );
+    expect(m.title).toContain("import");
+    expect(m.description).toContain("err_abc123def456");
+    expect(m.description).toMatch(/SPARK team/i);
+  });
+
+  it("omits the ref suffix when there is no traceId", async () => {
+    const m = await failureMessage(new Response("", { status: 500 }), "import");
+    expect(m.description).not.toMatch(/ref /);
+  });
 });
 
 describe("networkMessage", () => {

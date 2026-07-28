@@ -19,11 +19,17 @@ export async function failureMessage(
   verb: string,
 ): Promise<UploadMessage> {
   let serverMsg: string | undefined;
+  let traceId: string | undefined;
   try {
-    serverMsg = (await res.json())?.error;
+    const body = await res.json();
+    serverMsg = body?.error;
+    traceId = typeof body?.traceId === "string" ? body.traceId : undefined;
   } catch {
     // Body wasn't JSON — fall through to a status-based message.
   }
+  // A traceId means the server captured this failure — show it so the user can
+  // quote it to the SPARK team, who can look up the exact error by that ref.
+  const ref = traceId ? ` (ref ${traceId})` : "";
   if (serverMsg) return { title: serverMsg };
 
   switch (res.status) {
@@ -51,12 +57,12 @@ export async function failureMessage(
       return {
         title: `Couldn't ${verb} the file`,
         description:
-          "Something went wrong on the server. If it keeps happening, tell the SPARK team.",
+          `Something went wrong on the server. If it keeps happening, tell the SPARK team${ref}.`,
       };
     default:
       return {
         title: `Upload failed (error ${res.status})`,
-        description: "Please try again in a moment.",
+        description: `Please try again in a moment.${ref ? ` If it persists, tell the SPARK team${ref}.` : ""}`,
       };
   }
 }

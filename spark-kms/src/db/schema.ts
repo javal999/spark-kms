@@ -494,6 +494,35 @@ export const initiativeEmbeddings = pgTable("initiative_embeddings", {
     .defaultNow(),
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// Observability: server-side error capture (batch-upload tracing + reusable).
+// Append-only. Every unexpected 500 from an instrumented route writes one row
+// here AND a structured line to stdout, keyed by a `traceId` also returned to
+// the user so a report ("I got err X") maps to an exact row. NO raw request
+// bodies / row content / PII — only a bounded `meta` bag of scalars (batch id,
+// counts, sizes) the route chooses to attach.
+// ─────────────────────────────────────────────────────────────────────────
+export const errorEvents = pgTable(
+  "error_events",
+  {
+    id: serial("id").primaryKey(),
+    traceId: text("trace_id").notNull(),
+    route: text("route").notNull(), // e.g. "POST /api/upload/commit"
+    actorId: integer("actor_id"), // nullable: an error can precede auth
+    name: text("name").notNull(), // error class, e.g. "PostgresError"
+    message: text("message").notNull(),
+    stack: text("stack"),
+    meta: jsonb("meta"), // bounded scalars only — never PII / row content
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("error_events_created_idx").on(t.createdAt),
+    uniqueIndex("error_events_trace_idx").on(t.traceId),
+  ],
+);
+
 // Convenience type exports for services.
 export type User = typeof users.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
@@ -511,3 +540,5 @@ export type UsageDaily = typeof usageDaily.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type InitiativeTag = typeof initiativeTags.$inferSelect;
 export type InitiativeEmbedding = typeof initiativeEmbeddings.$inferSelect;
+export type ErrorEvent = typeof errorEvents.$inferSelect;
+export type NewErrorEvent = typeof errorEvents.$inferInsert;

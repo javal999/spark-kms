@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/src/lib/guards";
+import { captureError, serverErrorResponse } from "@/src/lib/error-log";
 import { previewUpload, UploadError, MAX_UPLOAD_BYTES } from "@/src/services/upload";
 
 export const runtime = "nodejs";
@@ -26,6 +27,11 @@ export async function POST(req: NextRequest) {
     if (err instanceof UploadError) {
       return NextResponse.json({ error: err.message, ...err.extra }, { status: err.status });
     }
-    throw err;
+    const traceId = await captureError(err, {
+      route: "POST /api/upload/preview",
+      actorId: gate.userId,
+      meta: { fileBytes: file.size },
+    });
+    return serverErrorResponse(traceId);
   }
 }

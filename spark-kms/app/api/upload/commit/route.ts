@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/src/lib/guards";
+import { captureError, serverErrorResponse } from "@/src/lib/error-log";
 import {
   commitUpload,
   UploadError,
@@ -52,6 +53,13 @@ export async function POST(req: NextRequest) {
     if (err instanceof UploadError) {
       return NextResponse.json({ error: err.message, ...err.extra }, { status: err.status });
     }
-    throw err;
+    // Unexpected failure (DB write, scoring, timeout) — previously vanished as a
+    // bare 500. Capture it with batch context and hand the user a trace id.
+    const traceId = await captureError(err, {
+      route: "POST /api/upload/commit",
+      actorId: gate.userId,
+      meta: { fileBytes: file.size, choiceCount: Object.keys(choices).length },
+    });
+    return serverErrorResponse(traceId);
   }
 }

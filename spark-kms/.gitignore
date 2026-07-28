@@ -50,3 +50,6 @@ next-env.d.ts
 # understand-anything knowledge graph
 .ua/
 .understand-anything/
+
+# graphify knowledge graph
+graphify-out/

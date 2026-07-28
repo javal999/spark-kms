@@ -11,3 +11,6 @@ SPARK WEEKLY UPDATE.numbers
 
 # Generated historical-data import (real business data)
 SPARK-KMS-historical-import.xlsx
+
+# TrueCourse analysis output (local scan artifacts; LATEST.json is ~1.8MB)
+.truecourse/

@@ -15,7 +15,7 @@ import {
  * THE GOLDEN TEST (task 2.3) — the single most valuable test in the project.
  *
  * Replays the 45 real SPARK entries through the REAL scoring path (create →
- * +1 new +1 entry; confirm → +2 bp_of_week) and proves the engine reproduces
+ * +1 new, first entry folds in; confirm → +2 bp_of_week) and proves the engine reproduces
  * the file's "Dashboard Final" Best-Practice recap exactly, per Area and per
  * Region. The expected numbers come from the file, not from SPARK_45, so a
  * scoring bug (wrong points, wrong Area attribution, wrong aggregation) breaks

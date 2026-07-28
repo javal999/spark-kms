@@ -39,7 +39,7 @@ describe("v1.2 retired-stream reversal (REQ-S5)", () => {
   });
 
   it("nets cee/cee_best/presentation to zero, keeps the 2 live streams, idempotent", async () => {
-    // Live data: +1 new +1 entry (best_practice) and a new best_presenter +2.
+    // Live data: +1 new (best_practice; first entry folds in) and a new best_presenter +2.
     const ini = await createInitiative(base, actor);
     await award({ reason: "best_presenter", initiativeId: ini.initiativeId, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
 
@@ -56,7 +56,7 @@ describe("v1.2 retired-stream reversal (REQ-S5)", () => {
     // Retired streams net to zero; live streams intact.
     expect(await sumStream("cee")).toBe(0);
     expect(await sumStream("cee_best")).toBe(0);
-    expect(await sumStream("best_practice")).toBe(2); // +1 new +1 entry
+    expect(await sumStream("best_practice")).toBe(1); // +1 new (first entry folds in)
     expect(await sumStream("presenter")).toBe(2); // best_presenter survives; presentation netted
 
     // Idempotent.

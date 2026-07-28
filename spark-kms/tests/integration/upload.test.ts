@@ -150,8 +150,8 @@ describe("idempotency of scoring — form vs upload produce identical points", (
     const map = Object.fromEntries(
       (sums as unknown as Array<{ title: string; pts: number }>).map((r) => [r.title, Number(r.pts)]),
     );
-    expect(map["Upload Topic"]).toBe(map["Form Topic"]); // +1 new +1 entry = 2 each
-    expect(map["Upload Topic"]).toBe(2);
+    expect(map["Upload Topic"]).toBe(map["Form Topic"]); // +1 new (first entry folds in) = 1 each
+    expect(map["Upload Topic"]).toBe(1);
   });
 });
 

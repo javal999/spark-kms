@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/src/db";
-import { createInitiative } from "@/src/services/initiatives";
+import { createInitiative, appendEntry } from "@/src/services/initiatives";
 import { award, reverse } from "@/src/services/scoring";
 import {
   areaLeaderboard,
@@ -33,7 +33,14 @@ beforeAll(async () => {
   // Weekly awards on Alpha's area (v1.2 two streams).
   await award({ reason: "best_presenter", initiativeId: a.initiativeId, region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor, refId: a.entryId });
   await award({ reason: "bp_of_week", initiativeId: a.initiativeId, region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor, refId: a.entryId });
-  // A reversal on Bravo's entry point.
+  // A later progress entry on Bravo (create no longer emits an `entry` event —
+  // the first entry folds into new_initiative), then reverse its point so the
+  // dataset still exercises a reversal.
+  await appendEntry(
+    b.initiativeId,
+    { entryDate: "2026-07-09", category: "Unlocking", detail: "progress", bpOfWeekNominated: false, bestPresenter: false } as never,
+    actor,
+  );
   const rows = await db.execute<{ id: number }>(sql`SELECT id FROM score_events WHERE initiative_id = ${b.initiativeId} AND reason='entry' LIMIT 1`);
   const entryEventId = Number((rows as unknown as Array<{ id: number }>)[0].id);
   await reverse(entryEventId, { actorId: actor, note: "test reversal" });

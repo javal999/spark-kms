@@ -60,15 +60,15 @@ describe("apiOps (Gate 5)", () => {
     expect(res.total).toBe(0);
   });
 
-  it("write create scores +2 and attributes created_by to the key owner", async () => {
+  it("write create scores +1 (new only; first entry folds in) and attributes created_by to the key owner", async () => {
     const res = await opCreateInitiative(writeCtx(), {
       ...payload,
       force_new: true,
     });
     expect(res.mode).toBe("created");
     const totals = await initiativeStreamTotals(res.initiativeId);
-    expect(totals.best_practice).toBe(2);
-    expect(totals.total).toBe(2);
+    expect(totals.best_practice).toBe(1);
+    expect(totals.total).toBe(1);
 
     const [ini] = await db
       .select({ createdBy: initiatives.createdBy })
@@ -84,8 +84,8 @@ describe("apiOps (Gate 5)", () => {
       force_new: true,
     });
     const totals = await initiativeStreamTotals(res.initiativeId);
-    expect(totals.best_practice).toBe(4); // +1 new +1 entry +2 bp_of_week
-    expect(totals.total).toBe(4);
+    expect(totals.best_practice).toBe(3); // +1 new +2 bp_of_week (first entry folds in)
+    expect(totals.total).toBe(3);
   });
 
   it("honors the 409 duplicate contract incl. force_new and append_to", async () => {
@@ -118,7 +118,7 @@ describe("apiOps (Gate 5)", () => {
     expect(appended.mode).toBe("appended");
     expect(appended.initiativeId).toBe(first.initiativeId);
     const totals = await initiativeStreamTotals(first.initiativeId);
-    expect(totals.total).toBe(3); // 2 from create + 1 appended entry
+    expect(totals.total).toBe(2); // 1 from create + 1 appended entry
   });
 
   it("produces points identical to the web-form service (parity)", async () => {
@@ -139,7 +139,7 @@ describe("apiOps (Gate 5)", () => {
     const a = await initiativeStreamTotals(viaApi.initiativeId);
     const f = await initiativeStreamTotals(viaForm.initiativeId);
     expect(a).toEqual(f);
-    expect(a.total).toBe(2);
+    expect(a.total).toBe(1);
   });
 
   it("rejects invalid write bodies with ApiValidationError (400)", async () => {

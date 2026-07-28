@@ -114,9 +114,13 @@ export async function createInitiativeInTx(
       opts,
     );
 
-    // Scoring (§5.1): +1 new_initiative, +1 entry (day-capped). Both land on the
-    // entry_date so a backdated historical import scores in the correct week.
-    // A BP-of-week nomination scores NOTHING here — only super-admin confirm does.
+    // Scoring: +1 new_initiative ONLY. The initiative's FIRST entry folds into
+    // this point — creating an initiative and writing its first progress is one
+    // submit, so it earns one base point, not two (Levi decision 2026-07-28,
+    // supersedes §5.1's separate "entry +1" for the creation entry). LATER
+    // progress entries each earn +1 via appendEntry. Lands on entry_date so a
+    // backdated historical import scores in the correct week. A BP-of-week
+    // nomination scores NOTHING here — only super-admin confirm does.
     await award(
       {
         reason: "new_initiative",
@@ -126,18 +130,6 @@ export async function createInitiativeInTx(
         effectiveDate: input.entryDate,
         actorId,
         refId: ini.id,
-      },
-      tx,
-    );
-    await award(
-      {
-        reason: "entry",
-        initiativeId: ini.id,
-        region: input.region,
-        segment: input.segment,
-        effectiveDate: input.entryDate,
-        actorId,
-        refId: entry.id,
       },
       tx,
     );

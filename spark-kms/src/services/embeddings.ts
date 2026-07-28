@@ -35,7 +35,7 @@ function bucket(token: string): number {
 export const stubEmbedder: Embedder = {
   id: "stub-hash-v1",
   async embed(text: string): Promise<number[]> {
-    const v = new Array(STUB_DIM).fill(0);
+    const v = new Array<number>(STUB_DIM).fill(0);
     for (const tok of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
       v[bucket(tok)] += 1;
     }

@@ -237,7 +237,10 @@ export async function areaScoreEvents(
     WHERE se.region = ${region}::region AND se.segment = ${segment}::segment ${dateClause}
     ORDER BY se.effective_date DESC, se.id DESC
   `);
-  return (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+  // Raw SQL: every selected column is a text/int/date scalar, so model the row
+  // as scalars rather than `unknown`. The truthiness guards below narrow
+  // `unknown` to `{}`, where String() can silently yield "[object Object]".
+  return (rows as unknown as Array<Record<string, string | number | null>>).map((r) => ({
     id: Number(r.id),
     stream: String(r.stream),
     reason: String(r.reason),

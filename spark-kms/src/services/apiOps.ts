@@ -9,7 +9,6 @@ import {
   getInitiativeDetail,
   listInitiatives,
   InitiativeNotFoundError,
-  type ListFilters,
 } from "@/src/services/initiatives";
 import {
   findDuplicateCandidates,
@@ -102,7 +101,7 @@ export const apiListSchema = z.object({
 export async function opListInitiatives(ctx: ApiContext, raw: unknown) {
   assertScope(ctx, "read");
   const f = parse(apiListSchema, raw ?? {});
-  return listInitiatives(f as ListFilters);
+  return listInitiatives(f);
 }
 
 export async function opGetInitiative(ctx: ApiContext, id: number) {

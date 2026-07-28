@@ -142,7 +142,7 @@ async function loadNodes(filter?: GraphFilter): Promise<NodeRow[]> {
     })
     .from(initiatives)
     .where(conds.length ? and(...conds) : undefined);
-  return rows as NodeRow[];
+  return rows;
 }
 
 /**

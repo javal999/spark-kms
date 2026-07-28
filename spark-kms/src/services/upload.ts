@@ -61,7 +61,9 @@ function parseCellDate(value: ExcelJS.CellValue): string | undefined {
     const d = String(value.getUTCDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   }
-  const s = String(value).trim();
+  // Reuse cellText so rich-text/formula date cells resolve to their payload
+  // instead of stringifying to "[object Object]" and failing schema validation.
+  const s = cellText(value).trim();
   // DD/MM/YYYY
   const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
   if (dmy) {
@@ -81,14 +83,28 @@ function parseBool(raw: string | undefined | null): boolean {
   return t === "true" || t === "1" || t === "yes";
 }
 
+/** Stringify a value of unknown static type without risking "[object Object]". */
+function scalarText(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") {
+    return String(v);
+  }
+  if (v instanceof Date) return String(v);
+  return "";
+}
+
 function cellText(value: ExcelJS.CellValue): string {
   if (value == null) return "";
+  if (value instanceof Date) return String(value);
   if (typeof value === "object") {
-    // hyperlink / rich text
+    // hyperlink / rich text / formula result
     const anyV = value as { text?: string; result?: unknown; hyperlink?: string };
     if (typeof anyV.text === "string") return anyV.text;
-    if (anyV.hyperlink) return String(anyV.hyperlink);
-    if (anyV.result != null) return String(anyV.result);
+    if (anyV.hyperlink) return anyV.hyperlink;
+    if (anyV.result != null) return scalarText(anyV.result);
+    // An object cell with no readable payload: empty beats "[object Object]".
+    return "";
   }
   return String(value);
 }

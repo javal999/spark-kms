@@ -45,7 +45,14 @@ export class ActionItemNotFoundError extends Error {
 function asText(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   if (Array.isArray(v)) return v.length ? v.join(", ") : null;
-  const s = String(v);
+  if (typeof v === "string") return v === "" ? null : v;
+  if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") {
+    return String(v);
+  }
+  if (v instanceof Date) return String(v);
+  // Anything left is a plain object, which would stringify to "[object Object]"
+  // — useless in an audit trail — so serialize it instead.
+  const s = JSON.stringify(v) ?? "";
   return s === "" ? null : s;
 }
 

@@ -90,7 +90,7 @@ export async function listApiKeys(): Promise<ApiKeySummary[]> {
     })
     .from(apiKeys)
     .orderBy(desc(apiKeys.createdAt));
-  return rows as ApiKeySummary[];
+  return rows;
 }
 
 /** Revoke a key (idempotent). Returns true if a still-active key was revoked. */
@@ -136,7 +136,7 @@ export async function verifyApiKey(
 
   return {
     keyId: row.id,
-    scope: row.scope as ApiScope,
+    scope: row.scope,
     ownerUserId: row.ownerUserId,
   };
 }

@@ -156,7 +156,7 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
   ];
   example.forEach((v, c) => {
     const cell = en.getCell(3, c + 1);
-    cell.value = v as ExcelJS.CellValue;
+    cell.value = v;
     cell.font = { italic: true, color: { argb: "FF999999" } };
     if (c === 0) cell.numFmt = "dd/mm/yyyy";
   });

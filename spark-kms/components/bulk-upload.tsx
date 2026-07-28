@@ -25,6 +25,7 @@ import {
   failureMessage,
   networkMessage,
   validateUploadFile,
+  errorReportCsv,
   type UploadMessage,
 } from "@/src/lib/upload-errors";
 
@@ -131,6 +132,22 @@ export function BulkUpload() {
         : { action: "new" },
     );
   const createAllAsNew = () => setAllDuplicates(() => ({ action: "new" }));
+
+  // For a file with many bad rows, a scrolling table is hard to act on — offer a
+  // downloadable error report (CSV, opens in Excel). The CSV is built by a pure,
+  // unit-tested helper; here we only wrap it in a browser download.
+  function downloadErrorReport() {
+    const url = URL.createObjectURL(
+      new Blob([errorReportCsv(errorRows)], { type: "text/csv;charset=utf-8;" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "spark-upload-errors.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
   const clearDuplicateChoices = () => setAllDuplicates(() => undefined);
 
   // How each duplicate row is currently resolved (for the ack summary).
@@ -252,6 +269,18 @@ export function BulkUpload() {
               <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
                 Fix the {errorRows.length} error row(s) in your file and re-upload
                 — nothing can be imported while any row has an error.
+                {errorRows.length > 10 && (
+                  <div className="mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={downloadErrorReport}
+                    >
+                      Download error list ({errorRows.length}) — CSV
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 

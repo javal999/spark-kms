@@ -3,6 +3,8 @@ import {
   failureMessage,
   networkMessage,
   validateUploadFile,
+  errorReportCsv,
+  type ErrorReportRow,
 } from "@/src/lib/upload-errors";
 
 /**
@@ -94,6 +96,48 @@ describe("networkMessage", () => {
     // both reassure nothing was saved
     expect(networkMessage(false).description).toMatch(/try again/i);
     expect(networkMessage(true).description).toMatch(/nothing was saved/i);
+  });
+});
+
+describe("errorReportCsv", () => {
+  const row = (
+    rowNumber: number,
+    title: string,
+    errors: string[],
+    extra: Partial<ErrorReportRow["summary"]> = {},
+  ): ErrorReportRow => ({
+    rowNumber,
+    summary: { title, region: "Kalimantan", segment: "All", category: "", ...extra },
+    errors,
+  });
+
+  it("emits a header plus one line per error row, with all messages joined", () => {
+    const csv = errorReportCsv([
+      row(3, "No Region", ["Region is required", "Category is required"], { region: "" }),
+      row(5, "Bad Date", ["Tanggal: Date must be YYYY-MM-DD"]),
+    ]);
+    const lines = csv.replace(/^﻿/, "").split("\r\n");
+    expect(lines[0]).toBe('"Row","Topic/Tema","Region","Segment","Category","Errors"');
+    expect(lines).toHaveLength(3); // header + 2 rows
+    // both messages for row 3 are joined into the single Errors cell
+    expect(lines[1]).toContain('"Region is required; Category is required"');
+    expect(lines[1]).toContain('"3"');
+    expect(lines[2]).toContain('"Bad Date"');
+  });
+
+  it("starts with a BOM so Excel reads UTF-8, and quotes/escapes fields", () => {
+    const csv = errorReportCsv([
+      row(7, 'Emina "Glow" Kit', ['weird, value with "quotes"']),
+    ]);
+    expect(csv.charCodeAt(0)).toBe(0xfeff); // BOM
+    // internal double-quotes are doubled per RFC 4180
+    expect(csv).toContain('"Emina ""Glow"" Kit"');
+    expect(csv).toContain('"weird, value with ""quotes"""');
+  });
+
+  it("handles an empty list (header only)", () => {
+    const csv = errorReportCsv([]).replace(/^﻿/, "");
+    expect(csv).toBe('"Row","Topic/Tema","Region","Segment","Category","Errors"');
   });
 });
 

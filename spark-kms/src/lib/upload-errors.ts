@@ -83,6 +83,37 @@ export function networkMessage(
       };
 }
 
+/**
+ * Build a readable CSV error report from the preview's error rows — one row per
+ * bad line, every message for that line joined into the Errors column. Pure so
+ * it can be unit-tested; the component only wraps the result in a download.
+ * A leading BOM makes Excel read UTF-8 (Indonesian text) correctly; rows use
+ * CRLF. Fields are quoted and internal quotes doubled per RFC 4180.
+ */
+export type ErrorReportRow = {
+  rowNumber: number;
+  summary: { title: string; region: string; segment: string; category: string };
+  errors: string[];
+};
+
+export function errorReportCsv(rows: ErrorReportRow[]): string {
+  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = ["Row", "Topic/Tema", "Region", "Segment", "Category", "Errors"];
+  const body = rows.map((r) =>
+    [
+      r.rowNumber,
+      r.summary.title,
+      r.summary.region,
+      r.summary.segment,
+      r.summary.category,
+      r.errors.join("; "),
+    ]
+      .map(esc)
+      .join(","),
+  );
+  return "﻿" + [header.map(esc).join(","), ...body].join("\r\n");
+}
+
 /** Client-side pre-check before uploading; returns a message if the file is bad. */
 export function validateUploadFile(
   name: string,

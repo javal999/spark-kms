@@ -171,6 +171,15 @@ function buildRow(
   if (category.unmapped) errors.push(`Category "${category.unmapped}" must be Best Practice or Unlocking`);
   if (stage.unmapped) errors.push(`Stage "${stage.unmapped}" is not a valid stage`);
 
+  // An EMPTY required enum has no `unmapped` value, so it produces no message
+  // above AND its Zod error is skipped below (enum fields are filtered out) —
+  // leaving the row with errors:[] but data:undefined, which slips past the
+  // commit's rowErrors guard and crashes `data!.pillar`. Flag them explicitly.
+  // (pillar is optional for uploads; stage defaults to Idea — so only these.)
+  if (!region.value && !region.unmapped) errors.push("Region is required");
+  if (!segment.value && !segment.unmapped) errors.push("Segment is required");
+  if (!category.value && !category.unmapped) errors.push("Category is required");
+
   const candidate = {
     entryDate: parseCellDate(tanggalCell),
     region: region.value,
@@ -405,8 +414,12 @@ export async function commitUpload(
     const choice = choices[r.rowNumber] ?? { action: "new" as const };
     return { row: r, choice };
   });
+  // `data?.` (not `data!.`) is defensive: buildRow now guarantees a row reaching
+  // here has data (any undefined-data row carries an error and was rejected by
+  // the rowErrors guard above), but optional chaining means a future gap yields
+  // a clean "Pillar is required" 422 instead of a 500 crash.
   const missingPillar = plan.filter(
-    (p) => p.choice.action === "new" && !p.row.data!.pillar,
+    (p) => p.choice.action === "new" && !p.row.data?.pillar,
   );
   if (missingPillar.length > 0) {
     throw new UploadError(422, "Pillar is required for new topics; nothing was imported.", {

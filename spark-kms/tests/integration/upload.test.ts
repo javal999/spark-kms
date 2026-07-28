@@ -128,6 +128,40 @@ describe("commit (all-or-nothing)", () => {
   });
 });
 
+describe("empty required enums (regression: undefined-data commit crash)", () => {
+  it("flags an empty Region as a row error instead of silently valid", async () => {
+    const buf = await buildUploadFile([
+      validRow({ "Topic/Tema": "No Region", Region: "" }),
+    ]);
+    const { rows } = await parseWorkbook(buf);
+    expect(rows[0].errors.join()).toMatch(/Region is required/i);
+    expect(rows[0].data).toBeUndefined();
+  });
+
+  it("preview marks an empty-Segment row as error (was mis-counted as new)", async () => {
+    const buf = await buildUploadFile([
+      validRow({ "Topic/Tema": "Blank Segment", Segment: "" }),
+    ]);
+    const res = await previewUpload(buf, "f.xlsx", actor);
+    expect(res.rows[0].status).toBe("error");
+    expect(res.counts).toMatchObject({ error: 1, valid: 0 });
+  });
+
+  it("commit rejects an empty-Category row with a 422 instead of crashing", async () => {
+    // The exact reported bug: a blank required enum used to yield data:undefined
+    // that slipped past validation and threw `Cannot read properties of
+    // undefined (reading 'pillar')`. It must now be a clean UploadError.
+    const buf = await buildUploadFile([
+      validRow({ "Topic/Tema": "Blank Category", Category: "" }),
+    ]);
+    await previewUpload(buf, "f.xlsx", actor);
+    const err = await commitUpload(buf, {}, actor).catch((e) => e);
+    expect(err).toBeInstanceOf(UploadError);
+    expect((err as UploadError).status).toBe(422);
+    expect(await countInitiatives()).toBe(0);
+  });
+});
+
 describe("idempotency of scoring — form vs upload produce identical points", () => {
   it("an initiative created by upload scores the same as one created by form", async () => {
     // Via form service.

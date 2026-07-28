@@ -227,9 +227,14 @@ export function PeoplePanel({ people }: { people: Person[] }) {
         </div>
 
         {people.length > 0 && (
-          <div className="rounded-lg border">
+          <div
+            className={`rounded-lg border${
+              // Cap the visible list to ~10 rows; scroll the rest (sticky header).
+              people.length > 10 ? " max-h-[22rem] overflow-y-auto" : ""
+            }`}
+          >
             <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+              <thead className="sticky top-0 z-10 bg-muted text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Status</th>

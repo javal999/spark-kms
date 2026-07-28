@@ -549,15 +549,6 @@ function EntryFields({
             Best Practice of the Week
             <Badge variant="outline">+2 auto</Badge>
           </label>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={entry.bestPresenter}
-              onCheckedChange={(c) => setE({ bestPresenter: c === true })}
-              data-testid="best-presenter"
-            />
-            Best Presenter of the Week
-            <Badge variant="outline">+2 auto</Badge>
-          </label>
         </div>
       </div>
     </div>

@@ -109,7 +109,7 @@ export default async function InitiativeDetailPage({
         {(
           [
             ["Best Practice", points.best_practice],
-            ["Best Presenter", points.best_presenter],
+            ["Presenter", points.best_presenter],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="rounded-lg border bg-card px-4 py-3">
@@ -162,7 +162,7 @@ export default async function InitiativeDetailPage({
                   </Badge>
                 ) : e.bpOfWeekNominated ? (
                   <Badge variant="outline" className="text-muted-foreground">
-                    BP nominated
+                    Weekly Best Practice
                   </Badge>
                 ) : null}
               </div>

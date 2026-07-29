@@ -3,6 +3,7 @@ import { listAdmins } from "@/src/services/admin";
 import { listApiKeys } from "@/src/services/apiKeys";
 import { listPeople } from "@/src/services/people";
 import { listRecentErrors } from "@/src/services/errors";
+import { listAuthorized } from "@/src/services/authorized-users";
 import {
   UsersPanel,
   PeoplePanel,
@@ -10,6 +11,7 @@ import {
   ViewerPasswordPanel,
   ScoringPanel,
   ApiKeysPanel,
+  AccessPanel,
 } from "@/components/admin-console";
 import { AdminSectionNav, type AdminSection } from "@/components/admin-section-nav";
 import { flags } from "@/src/lib/flags";
@@ -17,6 +19,7 @@ import { flags } from "@/src/lib/flags";
 const SECTIONS: AdminSection[] = [
   { id: "scoring", label: "Adjustments" },
   { id: "admins", label: "Admins" },
+  ...(flags.sso ? [{ id: "access", label: "Access (SSO)" }] : []),
   { id: "people", label: "PIC directory" },
   ...(flags.graph ? [{ id: "ai-links", label: "AI connections" }] : []),
   { id: "api-keys", label: "API keys" },
@@ -26,11 +29,12 @@ const SECTIONS: AdminSection[] = [
 ];
 
 export default async function AdminPage() {
-  const [admins, apiKeys, people, recentErrors] = await Promise.all([
+  const [admins, apiKeys, people, recentErrors, authorized] = await Promise.all([
     listAdmins(),
     listApiKeys(),
     listPeople(),
     listRecentErrors(50),
+    flags.sso ? listAuthorized() : Promise.resolve([]),
   ]);
 
   return (
@@ -50,6 +54,20 @@ export default async function AdminPage() {
       <section id="admins" className="scroll-mt-28">
         <UsersPanel admins={admins} />
       </section>
+      {flags.sso && (
+        <section id="access" className="scroll-mt-28">
+          <AccessPanel
+            users={authorized.map((u) => ({
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              role: u.role,
+              active: u.active,
+              lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+            }))}
+          />
+        </section>
+      )}
       <section id="people" className="scroll-mt-28">
         <PeoplePanel people={people} />
       </section>

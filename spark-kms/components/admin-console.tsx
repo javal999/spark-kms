@@ -74,7 +74,10 @@ export function UsersPanel({ admins }: { admins: Admin[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Admin accounts</CardTitle>
-        <CardDescription>Individual admin logins. Super-admins run this console.</CardDescription>
+        <CardDescription>
+          Password / break-glass accounts. Microsoft SSO users are managed under
+          Access (SSO), not here.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="rounded-lg border">
@@ -506,6 +509,165 @@ export function ScoringPanel() {
           </div>
           <div className="sm:col-span-4"><Button onClick={adjust} data-testid="post-adjustment">Post adjustment</Button></div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Access (M365 SSO) — the allow-list: who may sign in + at what role ───────
+type AccessUser = {
+  id: number;
+  email: string;
+  name: string;
+  role: "viewer" | "admin" | "super";
+  active: boolean;
+  lastLoginAt: string | null;
+};
+
+const ROLE_LABEL: Record<AccessUser["role"], string> = {
+  viewer: "Viewer",
+  admin: "Admin",
+  super: "Super-admin",
+};
+
+/**
+ * TRD-2026-009 E6. Super-admin manages the SSO allow-list: add an email, set its
+ * role, deactivate. Everyone listed signs in with Microsoft; viewers read only.
+ */
+export function AccessPanel({ users }: { users: AccessUser[] }) {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<AccessUser["role"]>("viewer");
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    if (!email.trim()) return toast.error("Enter an email");
+    setBusy(true);
+    const { ok, data } = await postJSON("/api/admin/access", {
+      email: email.trim(),
+      role,
+    });
+    setBusy(false);
+    if (!ok) return toast.error(data.error ?? "Couldn't add user");
+    toast.success(`${data.user.email} set to ${ROLE_LABEL[data.user.role as AccessUser["role"]]}`);
+    setEmail("");
+    router.refresh();
+  }
+
+  async function changeRole(u: AccessUser, newRole: string) {
+    const { ok, data } = await postJSON("/api/admin/access", {
+      email: u.email,
+      role: newRole,
+    });
+    if (!ok) return toast.error(data.error ?? "Couldn't change role");
+    router.refresh();
+  }
+
+  async function toggle(u: AccessUser) {
+    const { ok, data } = await postJSON(
+      "/api/admin/access",
+      { id: u.id, active: !u.active },
+      "PATCH",
+    );
+    if (!ok) return toast.error(data.error ?? "Couldn't update");
+    router.refresh();
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Access (M365 SSO)</CardTitle>
+        <CardDescription>
+          Who can sign in and at what role. Everyone here signs in with their
+          Microsoft account; viewers can only read. Deactivating blocks new
+          sign-ins and privileged actions immediately.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="access-email">Email</Label>
+            <Input
+              id="access-email"
+              type="email"
+              placeholder="name@paragon-innovation.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-72"
+              data-testid="access-email"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Role</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as AccessUser["role"])}>
+              <SelectTrigger className="w-36" data-testid="access-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="viewer">Viewer</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="super">Super-admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={add} disabled={busy} data-testid="access-add">
+            Add / update
+          </Button>
+        </div>
+
+        {users.length > 0 && (
+          <div
+            className={`rounded-lg border${
+              users.length > 10 ? " max-h-[24rem] overflow-y-auto" : ""
+            }`}
+          >
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-muted text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Role</th>
+                  <th className="px-3 py-2">Last login</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {users.map((u) => (
+                  <tr key={u.id} className={u.active ? "" : "opacity-60"}>
+                    <td className="px-3 py-2 font-medium">{u.email}</td>
+                    <td className="px-3 py-2">
+                      <Select value={u.role} onValueChange={(v) => v && changeRole(u, v)}>
+                        <SelectTrigger className="h-7 w-36">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="super">Super-admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                      {u.lastLoginAt ? u.lastLoginAt.slice(0, 10) : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {u.active ? (
+                        <span className="text-green-700">Active</span>
+                      ) : (
+                        <span className="text-muted-foreground">Inactive</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Button variant="ghost" size="sm" onClick={() => toggle(u)}>
+                        {u.active ? "Deactivate" : "Reactivate"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

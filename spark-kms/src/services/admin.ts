@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, isNotNull } from "drizzle-orm";
 import { db } from "@/src/db";
 import { users, appConfig } from "@/src/db/schema";
 import { hashPassword } from "@/src/lib/password";
@@ -14,6 +14,9 @@ import { award, type Stream } from "@/src/services/scoring";
 
 // ---- Users ----
 export async function listAdmins() {
+  // Password / break-glass accounts only (TRD-2026-009): SSO users live on the
+  // allow-list and are managed in the Access panel, not here. A row with a
+  // password hash is a real password login.
   return db
     .select({
       id: users.id,
@@ -24,6 +27,7 @@ export async function listAdmins() {
       createdAt: users.createdAt,
     })
     .from(users)
+    .where(isNotNull(users.passwordHash))
     .orderBy(users.id);
 }
 
@@ -41,6 +45,8 @@ export async function createAdmin(input: {
       name: input.name.trim(),
       passwordHash,
       isSuper: input.isSuper,
+      // Keep the new `role` source-of-truth in step with is_super (TRD-2026-009).
+      role: input.isSuper ? "super" : "admin",
     })
     .returning({ id: users.id });
   return row;

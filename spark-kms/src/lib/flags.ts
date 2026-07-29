@@ -9,6 +9,9 @@
 export const flags = {
   graph: process.env.NEXT_PUBLIC_FEATURE_GRAPH === "1",
   tracking: process.env.NEXT_PUBLIC_FEATURE_TRACKING === "1",
+  // M365 SSO (TRD-2026-009). Client reads it to show "Sign in with Microsoft";
+  // the SSO routes gate on it too. NEXT_PUBLIC_* so both sides see it.
+  sso: process.env.NEXT_PUBLIC_FEATURE_SSO === "1",
 } as const;
 
 export type FeatureFlags = typeof flags;

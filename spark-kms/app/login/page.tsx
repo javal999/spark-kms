@@ -11,11 +11,28 @@ import { flags } from "@/src/lib/flags";
 
 type Mode = "viewer" | "admin";
 
+/** Microsoft's four-square mark (brand-correct colours). */
+function MicrosoftLogo() {
+  return (
+    <svg viewBox="0 0 23 23" className="size-4" aria-hidden="true">
+      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
+      <rect x="12" y="1" width="10" height="10" fill="#7FBA00" />
+      <rect x="1" y="12" width="10" height="10" fill="#00A4EF" />
+      <rect x="12" y="12" width="10" height="10" fill="#FFB900" />
+    </svg>
+  );
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/";
+  const denied = params.get("denied") === "1";
+  const err = params.get("e");
+  const ref = params.get("ref");
   const [mode, setMode] = useState<Mode>("viewer");
+  // With SSO on, the password form is tucked behind "Use a password instead".
+  const [showPassword, setShowPassword] = useState(!flags.sso);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -24,8 +41,7 @@ function LoginForm() {
     e.preventDefault();
     setPending(true);
     try {
-      const body =
-        mode === "admin" ? { email, password } : { password };
+      const body = mode === "admin" ? { email, password } : { password };
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -45,62 +61,112 @@ function LoginForm() {
     }
   }
 
+  // Callback outcomes are surfaced as a banner (redirects carry ?denied / ?e / ?ref).
+  const banner = denied
+    ? "The Microsoft account you signed in with isn't authorized for SPARK yet. Ask a SPARK admin to add you."
+    : err === "rate"
+      ? "Too many attempts. Please wait a few minutes, then try again."
+      : err
+        ? `Sign-in didn't complete. Please try again${ref ? ` (ref ${ref})` : ""}.`
+        : null;
+
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight">
-          {mode === "viewer" ? "Sign in to SPARK" : "Admin sign in"}
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight">Sign in to SPARK</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "viewer"
-            ? "Enter the shared viewer password to browse the knowledge base."
-            : "Use your individual admin account."}
+          {flags.sso
+            ? "Use your Microsoft account to access the knowledge base."
+            : "Enter the shared viewer password to browse the knowledge base."}
         </p>
       </div>
 
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        {mode === "admin" && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-        )}
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        <Button
-          type="submit"
-          disabled={pending}
-          data-testid="login-submit"
-          className="mt-1"
+      {banner && (
+        <div
+          className={`mb-4 rounded-md border p-3 text-sm ${
+            denied
+              ? "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-red-300 bg-red-50 text-red-900"
+          }`}
+          role="alert"
         >
-          {pending ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
+          {banner}
+        </div>
+      )}
 
-      <button
-        type="button"
-        className="mt-6 text-sm text-primary underline-offset-4 hover:underline"
-        onClick={() => setMode(mode === "viewer" ? "admin" : "viewer")}
-        data-testid="toggle-mode"
-      >
-        {mode === "viewer" ? "Admin sign in →" : "← Viewer password"}
-      </button>
+      {flags.sso && (
+        <a
+          href={`/api/auth/sso/start?next=${encodeURIComponent(next)}`}
+          className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border bg-card text-sm font-medium transition-colors hover:bg-accent"
+          data-testid="sso-signin"
+        >
+          <MicrosoftLogo />
+          Sign in with Microsoft
+        </a>
+      )}
+
+      {flags.sso && !showPassword && (
+        <button
+          type="button"
+          onClick={() => setShowPassword(true)}
+          className="mt-4 text-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
+          Use a password instead
+        </button>
+      )}
+
+      {(!flags.sso || showPassword) && (
+        <>
+          {flags.sso && (
+            <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              password sign-in
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          )}
+
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            {mode === "admin" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">
+                {mode === "admin" ? "Admin password" : "Shared viewer password"}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" disabled={pending} data-testid="login-submit" className="mt-1">
+              {pending ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+
+          <button
+            type="button"
+            className="mt-6 text-sm text-primary underline-offset-4 hover:underline"
+            onClick={() => setMode(mode === "viewer" ? "admin" : "viewer")}
+            data-testid="toggle-mode"
+          >
+            {mode === "viewer" ? "Admin sign in →" : "← Viewer password"}
+          </button>
+        </>
+      )}
 
       {flags.tracking && (
         <p className="mt-8 border-t pt-4 text-xs leading-relaxed text-muted-foreground">

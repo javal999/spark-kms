@@ -47,12 +47,14 @@ export async function seedDatabase() {
         name: SEED_CREDENTIALS.super.name,
         passwordHash: superHash,
         isSuper: true,
+        role: "super", // keep role in step with is_super (TRD-2026-009)
       },
       {
         email: SEED_CREDENTIALS.admin.email,
         name: SEED_CREDENTIALS.admin.name,
         passwordHash: adminHash,
         isSuper: false,
+        role: "admin",
       },
     ])
     .onConflictDoNothing({ target: users.email });

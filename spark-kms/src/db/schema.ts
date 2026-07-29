@@ -97,6 +97,9 @@ export const batchStatusEnum = pgEnum("batch_status", [
 
 // Integration API key scope (requirements 14, REQ-X3). `write` implies `read`.
 export const apiScopeEnum = pgEnum("api_scope", ["read", "write"]);
+// M365 SSO (TRD-2026-009): a person's access tier. Replaces the is_super
+// boolean as the role source of truth; the allow-list stores one role per email.
+export const userRoleEnum = pgEnum("user_role", ["viewer", "admin", "super"]);
 
 // What kind of record an edit_log row refers to.
 export const editEntityEnum = pgEnum("edit_entity", [
@@ -112,9 +115,17 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
-  passwordHash: text("password_hash").notNull(),
+  // Nullable now (TRD-2026-009): SSO users have no password. Only break-glass /
+  // legacy password admins carry a hash.
+  passwordHash: text("password_hash"),
+  // Access tier (source of truth). `is_super` kept for one release for a safe
+  // backfill; drop in a later cleanup once nothing reads it.
+  role: userRoleEnum("role").notNull().default("viewer"),
   isSuper: boolean("is_super").notNull().default(false),
+  // Entra object id — bound on first SSO login; the stable match key thereafter.
+  entraOid: text("entra_oid").unique(),
   active: boolean("active").notNull().default(true),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

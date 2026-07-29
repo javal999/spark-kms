@@ -37,6 +37,9 @@ export async function verifyAdminCredentials(
     .limit(1);
   const user = row[0];
   if (!user) return null;
+  // SSO-only users (allow-list entries) have no password hash — they cannot use
+  // the password path; only break-glass / legacy password admins can.
+  if (!user.passwordHash) return null;
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) return null;
   return {

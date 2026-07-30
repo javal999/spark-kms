@@ -1,11 +1,16 @@
 import { desc } from "drizzle-orm";
 import { db } from "@/src/db";
-import { errorEvents, type ErrorEvent } from "@/src/db/schema";
+import {
+  errorEvents,
+  slowRequests,
+  type ErrorEvent,
+  type SlowRequest,
+} from "@/src/db/schema";
 
 /**
- * Read-only access to captured server errors (observability). Written ONLY by
- * `captureError` in src/lib/error-log.ts; this module just lists them for the
- * in-app admin viewer.
+ * Read-only access to observability data (server errors + slow requests).
+ * Written ONLY by src/lib/error-log.ts; this module just lists them for the
+ * in-app admin viewers.
  */
 
 export async function listRecentErrors(limit = 50): Promise<ErrorEvent[]> {
@@ -13,5 +18,13 @@ export async function listRecentErrors(limit = 50): Promise<ErrorEvent[]> {
     .select()
     .from(errorEvents)
     .orderBy(desc(errorEvents.createdAt))
+    .limit(limit);
+}
+
+export async function listRecentSlowRequests(limit = 50): Promise<SlowRequest[]> {
+  return db
+    .select()
+    .from(slowRequests)
+    .orderBy(desc(slowRequests.createdAt))
     .limit(limit);
 }

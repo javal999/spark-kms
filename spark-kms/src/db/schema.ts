@@ -536,6 +536,23 @@ export const errorEvents = pgTable(
   ],
 );
 
+// Observability: slow requests (latency early-warning). Append-only; written by
+// logSlowRequest when an instrumented request exceeds the threshold, so latency
+// creep is visible in-app (Admin → Slow requests) before it becomes a timeout.
+export const slowRequests = pgTable(
+  "slow_requests",
+  {
+    id: serial("id").primaryKey(),
+    route: text("route").notNull(), // e.g. "POST /api/upload/commit"
+    ms: integer("ms").notNull(), // how long it took
+    meta: jsonb("meta"), // bounded scalars (file size, row counts) — no PII
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("slow_requests_created_idx").on(t.createdAt)],
+);
+
 // Convenience type exports for services.
 export type User = typeof users.$inferSelect;
 export type Initiative = typeof initiatives.$inferSelect;
@@ -555,3 +572,4 @@ export type InitiativeTag = typeof initiativeTags.$inferSelect;
 export type InitiativeEmbedding = typeof initiativeEmbeddings.$inferSelect;
 export type ErrorEvent = typeof errorEvents.$inferSelect;
 export type NewErrorEvent = typeof errorEvents.$inferInsert;
+export type SlowRequest = typeof slowRequests.$inferSelect;

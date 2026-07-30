@@ -85,25 +85,32 @@ describe("captureError", () => {
 describe("logSlowRequest", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
+    insertValues.mockClear().mockResolvedValue(undefined);
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => warnSpy.mockRestore());
 
-  it("logs a structured warn line when the request exceeds the threshold", () => {
-    logSlowRequest("POST /api/upload/commit", Date.now() - (SLOW_REQUEST_MS + 1000), {
-      fileBytes: 2048,
-    });
+  it("logs a structured warn line AND persists when the request exceeds the threshold", async () => {
+    await logSlowRequest(
+      "POST /api/upload/commit",
+      Date.now() - (SLOW_REQUEST_MS + 1000),
+      { fileBytes: 2048 },
+    );
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const line = JSON.parse(warnSpy.mock.calls[0][0] as string);
     expect(line.kind).toBe("slow-request");
     expect(line.route).toBe("POST /api/upload/commit");
     expect(line.ms).toBeGreaterThanOrEqual(SLOW_REQUEST_MS);
     expect(line.meta).toEqual({ fileBytes: 2048 });
+    // persisted to slow_requests for the Admin view
+    expect(insertValues).toHaveBeenCalledTimes(1);
+    expect(insertValues.mock.calls[0][0]).toMatchObject({ route: "POST /api/upload/commit" });
   });
 
-  it("stays silent for a fast request", () => {
-    logSlowRequest("POST /api/upload/preview", Date.now());
+  it("stays silent (no log, no DB write) for a fast request", async () => {
+    await logSlowRequest("POST /api/upload/preview", Date.now());
     expect(warnSpy).not.toHaveBeenCalled();
+    expect(insertValues).not.toHaveBeenCalled();
   });
 });
 

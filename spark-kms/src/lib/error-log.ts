@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/src/db";
-import { errorEvents } from "@/src/db/schema";
+import { errorEvents, slowRequests } from "@/src/db/schema";
 
 /**
  * Reusable server-side error capture (observability). An instrumented route
@@ -113,13 +113,13 @@ export function serverErrorResponse(traceId: string): NextResponse {
  */
 export const SLOW_REQUEST_MS = 5000;
 
-export function logSlowRequest(
+export async function logSlowRequest(
   route: string,
   startedAt: number,
   meta?: Record<string, unknown>,
-): void {
+): Promise<void> {
   const ms = Date.now() - startedAt;
-  if (ms < SLOW_REQUEST_MS) return;
+  if (ms < SLOW_REQUEST_MS) return; // fast path: no log, no DB write
   try {
     console.warn(
       JSON.stringify({
@@ -133,5 +133,12 @@ export function logSlowRequest(
     );
   } catch {
     /* logging must never worsen the request */
+  }
+  // Best-effort persist for the in-app Admin → Slow requests view. Only slow
+  // requests hit the DB, so the hot path pays nothing. Never throws.
+  try {
+    await db.insert(slowRequests).values({ route, ms, meta: (meta ?? {}) as Record<string, unknown> });
+  } catch {
+    /* swallow — an observability write must never fail the request */
   }
 }

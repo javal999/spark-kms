@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { listAdmins } from "@/src/services/admin";
 import { listApiKeys } from "@/src/services/apiKeys";
 import { listPeople } from "@/src/services/people";
-import { listRecentErrors } from "@/src/services/errors";
+import { listRecentErrors, listRecentSlowRequests } from "@/src/services/errors";
 import { listAuthorized } from "@/src/services/authorized-users";
 import {
   UsersPanel,
@@ -26,16 +26,19 @@ const SECTIONS: AdminSection[] = [
   { id: "viewer-password", label: "Viewer password" },
   { id: "template", label: "Template" },
   { id: "errors", label: "Error log" },
+  { id: "slow", label: "Slow requests" },
 ];
 
 export default async function AdminPage() {
-  const [admins, apiKeys, people, recentErrors, authorized] = await Promise.all([
-    listAdmins(),
-    listApiKeys(),
-    listPeople(),
-    listRecentErrors(50),
-    flags.sso ? listAuthorized() : Promise.resolve([]),
-  ]);
+  const [admins, apiKeys, people, recentErrors, authorized, slowReqs] =
+    await Promise.all([
+      listAdmins(),
+      listApiKeys(),
+      listPeople(),
+      listRecentErrors(50),
+      flags.sso ? listAuthorized() : Promise.resolve([]),
+      listRecentSlowRequests(50),
+    ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,6 +143,49 @@ export default async function AdminPage() {
                       <span className="font-medium">{e.name}</span>: {e.message}
                     </td>
                     <td className="py-2 pr-3 tabular-nums">{e.actorId ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section id="slow" className="scroll-mt-28 rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Slow requests</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Instrumented requests that took over 5s (e.g. large bulk uploads).
+          Watch this trend up — it&apos;s the early warning before a request hits
+          the ~60s gateway timeout.
+        </p>
+        {slowReqs.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Nothing slow lately. 🎉
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">When (UTC)</th>
+                  <th className="py-2 pr-3 font-medium">Route</th>
+                  <th className="py-2 pr-3 font-medium">Duration</th>
+                  <th className="py-2 pr-3 font-medium">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slowReqs.map((s) => (
+                  <tr key={s.id} className="border-b last:border-0 align-top">
+                    <td className="py-2 pr-3 whitespace-nowrap tabular-nums">
+                      {s.createdAt.toISOString().replace("T", " ").slice(0, 19)}
+                    </td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{s.route}</td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {(s.ms / 1000).toFixed(1)}s
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">
+                      {s.meta ? JSON.stringify(s.meta) : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

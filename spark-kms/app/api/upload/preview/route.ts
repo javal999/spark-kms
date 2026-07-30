@@ -35,6 +35,6 @@ export async function POST(req: NextRequest) {
     });
     return serverErrorResponse(traceId);
   } finally {
-    logSlowRequest("POST /api/upload/preview", startedAt, { fileBytes: file.size });
+    await logSlowRequest("POST /api/upload/preview", startedAt, { fileBytes: file.size });
   }
 }

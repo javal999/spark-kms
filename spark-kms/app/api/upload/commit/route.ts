@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     });
     return serverErrorResponse(traceId);
   } finally {
-    logSlowRequest("POST /api/upload/commit", startedAt, {
+    await logSlowRequest("POST /api/upload/commit", startedAt, {
       fileBytes: file.size,
       choiceCount: Object.keys(choices).length,
     });

@@ -1,0 +1,2 @@
+DROP INDEX "initiatives_title_trgm_idx";--> statement-breakpoint
+CREATE INDEX "initiatives_title_trgm_idx" ON "initiatives" USING gin (btrim(regexp_replace(lower("title"), '[^a-z0-9]+', ' ', 'g')) gin_trgm_ops);

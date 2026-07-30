@@ -38,7 +38,7 @@ export function normalizeTitle(title: string): string {
 // SQL-side normalization that mirrors normalizeTitle() exactly.
 const normalizedTitleSql = sql`btrim(regexp_replace(lower(initiatives.title), '[^a-z0-9]+', ' ', 'g'))`;
 
-async function getConfiguredThreshold(): Promise<number> {
+export async function getConfiguredThreshold(): Promise<number> {
   const row = await db
     .select({ value: appConfig.value })
     .from(appConfig)
@@ -80,7 +80,11 @@ export async function findDuplicateCandidates(
       initiatives.stage::text   AS stage,
       similarity(${normalizedTitleSql}, ${normalized}) AS similarity
     FROM initiatives
-    WHERE similarity(${normalizedTitleSql}, ${normalized}) >= ${threshold}
+    -- The trigram operator uses the GIN index (pg_trgm.similarity_threshold,
+    -- default 0.3) to prefilter cheaply; the exact similarity() check then cuts
+    -- to our configured threshold (default 0.4 >= 0.3, so nothing is missed).
+    WHERE ${normalizedTitleSql} % ${normalized}
+      AND similarity(${normalizedTitleSql}, ${normalized}) >= ${threshold}
     ORDER BY similarity DESC, initiatives.id ASC
     LIMIT ${limit}
   `);

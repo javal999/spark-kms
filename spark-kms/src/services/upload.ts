@@ -6,7 +6,11 @@ import { uploadBatches } from "@/src/db/schema";
 import { uploadRowSchema, type UploadRowInput, type NewInitiativeInput } from "@/src/validation/entry";
 import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums";
 import { TEMPLATE_COLUMNS, getTemplateVersion } from "@/src/services/template";
-import { findDuplicateCandidates, type DuplicateCandidate } from "@/src/services/duplicates";
+import {
+  findDuplicateCandidates,
+  getConfiguredThreshold,
+  type DuplicateCandidate,
+} from "@/src/services/duplicates";
 import { createInitiativeInTx, appendEntryInTx } from "@/src/services/initiatives";
 import { upsertByName } from "@/src/services/people";
 
@@ -303,11 +307,13 @@ export async function previewUpload(
     throw new UploadError(400, "No data rows found in the Entries sheet.");
   }
 
+  // Fetch the dedup threshold ONCE, not once per row (bulk-upload perf).
+  const dupThreshold = await getConfiguredThreshold();
   const previewRows: PreviewRow[] = [];
   for (const row of rows) {
     const candidates =
       row.data && row.errors.length === 0
-        ? await findDuplicateCandidates(row.data.title)
+        ? await findDuplicateCandidates(row.data.title, { threshold: dupThreshold })
         : [];
     const status: RowStatus = row.errors.length
       ? "error"

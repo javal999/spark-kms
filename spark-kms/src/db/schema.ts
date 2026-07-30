@@ -169,10 +169,12 @@ export const initiatives = pgTable(
       .defaultNow(),
   },
   (t) => [
-    // Trigram index on normalized title for pg_trgm duplicate detection (1.6).
+    // Trigram index on the NORMALIZED title, matching findDuplicateCandidates'
+    // expression exactly (btrim+regexp lower) so the `%` operator uses this index
+    // instead of a seq scan — the bulk-upload timeout fix.
     index("initiatives_title_trgm_idx").using(
       "gin",
-      sql`lower(${t.title}) gin_trgm_ops`,
+      sql`btrim(regexp_replace(lower(${t.title}), '[^a-z0-9]+', ' ', 'g')) gin_trgm_ops`,
     ),
   ],
 );

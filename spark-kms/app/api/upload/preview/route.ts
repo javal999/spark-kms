@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/src/lib/guards";
-import { captureError, serverErrorResponse } from "@/src/lib/error-log";
+import { captureError, serverErrorResponse, logSlowRequest } from "@/src/lib/error-log";
 import { previewUpload, UploadError, MAX_UPLOAD_BYTES } from "@/src/services/upload";
 
 export const runtime = "nodejs";
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   }
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  const startedAt = Date.now();
   try {
     const result = await previewUpload(buffer, file.name, gate.userId!);
     return NextResponse.json(result);
@@ -33,5 +34,7 @@ export async function POST(req: NextRequest) {
       meta: { fileBytes: file.size },
     });
     return serverErrorResponse(traceId);
+  } finally {
+    logSlowRequest("POST /api/upload/preview", startedAt, { fileBytes: file.size });
   }
 }

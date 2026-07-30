@@ -104,3 +104,34 @@ export function serverErrorResponse(traceId: string): NextResponse {
     { status: 500 },
   );
 }
+
+/**
+ * Early-warning for latency creep: log a request that ran longer than
+ * SLOW_REQUEST_MS as a structured stdout line (visible in the container logs),
+ * so we see slow endpoints trending UP long before they hit the ~60s gateway
+ * timeout. Call it in a `finally` with the handler's start time. Never throws.
+ */
+export const SLOW_REQUEST_MS = 5000;
+
+export function logSlowRequest(
+  route: string,
+  startedAt: number,
+  meta?: Record<string, unknown>,
+): void {
+  const ms = Date.now() - startedAt;
+  if (ms < SLOW_REQUEST_MS) return;
+  try {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        kind: "slow-request",
+        route,
+        ms,
+        meta: meta ?? {},
+        at: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    /* logging must never worsen the request */
+  }
+}

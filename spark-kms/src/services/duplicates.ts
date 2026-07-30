@@ -35,8 +35,9 @@ export function normalizeTitle(title: string): string {
     .trim();
 }
 
-// SQL-side normalization that mirrors normalizeTitle() exactly.
-const normalizedTitleSql = sql`btrim(regexp_replace(lower(initiatives.title), '[^a-z0-9]+', ' ', 'g'))`;
+// SQL-side normalization that mirrors normalizeTitle() exactly. Exported so the
+// index drift-guard test can EXPLAIN the exact same expression this query uses.
+export const normalizedTitleSql = sql`btrim(regexp_replace(lower(initiatives.title), '[^a-z0-9]+', ' ', 'g'))`;
 
 export async function getConfiguredThreshold(): Promise<number> {
   const row = await db

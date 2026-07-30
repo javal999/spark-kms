@@ -13,7 +13,12 @@ vi.mock("@/src/db", () => ({
   db: { insert: () => ({ values: insertValues }) },
 }));
 
-import { captureError, serverErrorResponse } from "@/src/lib/error-log";
+import {
+  captureError,
+  serverErrorResponse,
+  logSlowRequest,
+  SLOW_REQUEST_MS,
+} from "@/src/lib/error-log";
 
 let errSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
@@ -74,6 +79,31 @@ describe("captureError", () => {
     const row = insertValues.mock.calls[0][0];
     expect(row.name).toBe("UnknownError");
     expect(row.message).toBe("string thrown");
+  });
+});
+
+describe("logSlowRequest", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => warnSpy.mockRestore());
+
+  it("logs a structured warn line when the request exceeds the threshold", () => {
+    logSlowRequest("POST /api/upload/commit", Date.now() - (SLOW_REQUEST_MS + 1000), {
+      fileBytes: 2048,
+    });
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const line = JSON.parse(warnSpy.mock.calls[0][0] as string);
+    expect(line.kind).toBe("slow-request");
+    expect(line.route).toBe("POST /api/upload/commit");
+    expect(line.ms).toBeGreaterThanOrEqual(SLOW_REQUEST_MS);
+    expect(line.meta).toEqual({ fileBytes: 2048 });
+  });
+
+  it("stays silent for a fast request", () => {
+    logSlowRequest("POST /api/upload/preview", Date.now());
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
 

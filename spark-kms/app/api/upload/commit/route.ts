@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/src/lib/guards";
-import { captureError, serverErrorResponse } from "@/src/lib/error-log";
+import { captureError, serverErrorResponse, logSlowRequest } from "@/src/lib/error-log";
 import {
   commitUpload,
   UploadError,
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const startedAt = Date.now();
   try {
     const result = await commitUpload(buffer, choices, gate.userId!);
     return NextResponse.json(result);
@@ -61,5 +62,10 @@ export async function POST(req: NextRequest) {
       meta: { fileBytes: file.size, choiceCount: Object.keys(choices).length },
     });
     return serverErrorResponse(traceId);
+  } finally {
+    logSlowRequest("POST /api/upload/commit", startedAt, {
+      fileBytes: file.size,
+      choiceCount: Object.keys(choices).length,
+    });
   }
 }

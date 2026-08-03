@@ -53,6 +53,17 @@ export default async function AdminPage() {
         </p>
       </div>
 
+      <Link
+        href="/admin/overview"
+        className="rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+      >
+        <div className="text-sm font-medium">System overview →</div>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          How SPARK is built and behaves — data model, auth, scoring,
+          observability, archive, deploy. For super-admins and engineer handover.
+        </p>
+      </Link>
+
       <AdminSectionNav sections={SECTIONS} />
 
       <section id="scoring" className="scroll-mt-28">

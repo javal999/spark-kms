@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { initiatives, people, tags, initiativeTags, initiativeLinks } from "@/src/db/schema";
 
@@ -42,7 +42,7 @@ export async function buildEntityGraph(
   const want = (t: NodeType) => !filter?.types || filter.types.includes(t);
   const edgeOk = (a: NodeType, b: NodeType) => want(a) && want(b);
 
-  const conds = [];
+  const conds = [isNull(initiatives.archivedAt)]; // archived initiatives excluded from the entity graph
   if (filter?.region?.length) conds.push(inArray(initiatives.region, filter.region as never[]));
   if (filter?.segment?.length) conds.push(inArray(initiatives.segment, filter.segment as never[]));
   if (filter?.pillar?.length) conds.push(inArray(initiatives.pillar, filter.pillar as never[]));
@@ -161,7 +161,7 @@ export async function personInitiatives(personId: number): Promise<InitiativeBri
       stage: initiatives.stage,
     })
     .from(initiatives)
-    .where(eq(initiatives.picPersonId, personId))
+    .where(and(eq(initiatives.picPersonId, personId), isNull(initiatives.archivedAt)))
     .orderBy(initiatives.id);
 }
 
@@ -178,7 +178,7 @@ export async function tagInitiatives(tagId: number): Promise<InitiativeBrief[]> 
     })
     .from(initiatives)
     .innerJoin(initiativeTags, eq(initiativeTags.initiativeId, initiatives.id))
-    .where(eq(initiativeTags.tagId, tagId))
+    .where(and(eq(initiativeTags.tagId, tagId), isNull(initiatives.archivedAt)))
     .orderBy(initiatives.id);
 }
 

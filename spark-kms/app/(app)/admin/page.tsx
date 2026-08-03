@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { listAdmins } from "@/src/services/admin";
 import { listApiKeys } from "@/src/services/apiKeys";
 import { listPeople } from "@/src/services/people";
 import { listRecentErrors, listRecentSlowRequests } from "@/src/services/errors";
 import { listAuthorized } from "@/src/services/authorized-users";
+import { listInitiatives } from "@/src/services/initiatives";
 import {
   UsersPanel,
   PeoplePanel,
@@ -25,6 +27,7 @@ const SECTIONS: AdminSection[] = [
   { id: "api-keys", label: "API keys" },
   { id: "viewer-password", label: "Viewer password" },
   { id: "template", label: "Template" },
+  { id: "archived", label: "Archived" },
   { id: "errors", label: "Error log" },
   { id: "slow", label: "Slow requests" },
 ];
@@ -39,6 +42,7 @@ export default async function AdminPage() {
       flags.sso ? listAuthorized() : Promise.resolve([]),
       listRecentSlowRequests(50),
     ]);
+  const archivedList = await listInitiatives({ archived: "archived", pageSize: 100 });
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,6 +110,50 @@ export default async function AdminPage() {
             Download template
           </Button>
         </a>
+      </section>
+
+      <section id="archived" className="scroll-mt-28 rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Archived initiatives</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Hidden from lists, leaderboard, dashboard, and graph. Open one to
+          restore it.
+        </p>
+        {archivedList.rows.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">Nothing archived.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Initiative</th>
+                  <th className="py-2 pr-3 font-medium">Area</th>
+                  <th className="py-2 pr-3 font-medium">Stage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {archivedList.rows.map((r) => (
+                  <tr key={r.id} className="border-b last:border-0">
+                    <td className="py-2 pr-3">
+                      <Link
+                        href={`/initiatives/${r.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">
+                          #{r.id}
+                        </span>{" "}
+                        {r.title}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {r.region} · {r.segment}
+                    </td>
+                    <td className="py-2 pr-3">{r.stage}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section id="errors" className="scroll-mt-28 rounded-lg border bg-card p-4">

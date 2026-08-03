@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { initiativeLinks, initiatives } from "@/src/db/schema";
 
@@ -122,7 +122,7 @@ export async function deleteExplicitBetween(a: number, b: number): Promise<void>
 type NodeRow = GraphNode & { tags: string[] | null; replicatedFrom: number | null };
 
 async function loadNodes(filter?: GraphFilter): Promise<NodeRow[]> {
-  const conds = [];
+  const conds = [isNull(initiatives.archivedAt)]; // archived initiatives never in the graph
   if (filter?.region?.length)
     conds.push(inArray(initiatives.region, filter.region as never[]));
   if (filter?.segment?.length)

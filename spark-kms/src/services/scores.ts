@@ -36,12 +36,17 @@ export async function areaLeaderboard(weekKey?: string): Promise<LeaderboardRow[
   const rows = await db.execute(sql`
     WITH areas AS (
       SELECT DISTINCT region::text AS region, segment::text AS segment FROM initiatives
+      WHERE archived_at IS NULL
     ),
     agg AS (
       SELECT se.region::text AS region, se.segment::text AS segment,
              se.stream::text AS stream, sum(se.points)::int AS pts
       FROM score_events se
       WHERE true ${dateClause}
+        AND (se.initiative_id IS NULL OR NOT EXISTS (
+          SELECT 1 FROM initiatives i
+          WHERE i.id = se.initiative_id AND i.archived_at IS NOT NULL
+        ))
       GROUP BY se.region, se.segment, se.stream
     )
     SELECT a.region, a.segment,
@@ -110,7 +115,7 @@ export async function topInitiatives(
            coalesce(sum(se.points), 0)::int AS points
     FROM initiatives i
     JOIN score_events se ON se.initiative_id = i.id
-    WHERE true ${dateClause}
+    WHERE i.archived_at IS NULL ${dateClause}
     GROUP BY i.id, i.title, i.region, i.segment, i.pic, i.stage
     HAVING coalesce(sum(se.points), 0) > 0
     ORDER BY points DESC, i.id ASC
@@ -176,12 +181,12 @@ export async function dashboardStats(now: Date = new Date()): Promise<DashboardS
   const [{ total, newThisWeek }] = (await db.execute(sql`
     SELECT count(*)::int AS total,
            count(*) FILTER (WHERE created_at BETWEEN ${wkStart} AND ${wkEnd})::int AS "newThisWeek"
-    FROM initiatives
+    FROM initiatives WHERE archived_at IS NULL
   `)) as unknown as Array<{ total: number; newThisWeek: number }>;
 
   const dist = async (col: string) => {
     const rows = await db.execute(
-      sql`SELECT ${sql.raw(col)}::text AS k, count(*)::int AS c FROM initiatives GROUP BY ${sql.raw(col)}`,
+      sql`SELECT ${sql.raw(col)}::text AS k, count(*)::int AS c FROM initiatives WHERE archived_at IS NULL GROUP BY ${sql.raw(col)}`,
     );
     const out: Record<string, number> = {};
     for (const r of rows as unknown as Array<{ k: string; c: number }>) {
@@ -201,7 +206,7 @@ export async function dashboardStats(now: Date = new Date()): Promise<DashboardS
     SELECT
       count(*) FILTER (WHERE EXISTS (SELECT 1 FROM entries e WHERE e.initiative_id = i.id AND e.category = 'Best Practice'))::int AS "withBestPractice",
       count(*) FILTER (WHERE EXISTS (SELECT 1 FROM entries e WHERE e.initiative_id = i.id AND e.category = 'Unlocking'))::int AS "withUnlocking"
-    FROM initiatives i
+    FROM initiatives i WHERE i.archived_at IS NULL
   `)) as unknown as Array<{ withBestPractice: number; withUnlocking: number }>;
 
   return {
@@ -235,6 +240,7 @@ export async function areaScoreEvents(
     FROM score_events se
     LEFT JOIN initiatives i ON i.id = se.initiative_id
     WHERE se.region = ${region}::region AND se.segment = ${segment}::segment ${dateClause}
+      AND (se.initiative_id IS NULL OR i.archived_at IS NULL)
     ORDER BY se.effective_date DESC, se.id DESC
   `);
   // Raw SQL: every selected column is a text/int/date scalar, so model the row

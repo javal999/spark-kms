@@ -167,6 +167,11 @@ export const initiatives = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Soft-archive (super-admin only). When set, the initiative is hidden from
+    // lists, dashboard, leaderboard, graph and duplicate-matching (read-time
+    // exclusion) but the record + history stay, and Restore clears it.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedBy: integer("archived_by").references((): AnyPgColumn => users.id),
   },
   (t) => [
     // Trigram index on the NORMALIZED title, matching findDuplicateCandidates'

@@ -360,6 +360,8 @@ export type ListFilters = {
   dir?: "asc" | "desc";
   page?: number;
   pageSize?: number;
+  /** Soft-archive view: default (undefined) = active only; "archived" = archived only. */
+  archived?: "archived";
 };
 
 export type ListRow = {
@@ -395,6 +397,12 @@ export async function listInitiatives(
   filters: ListFilters,
 ): Promise<{ rows: ListRow[]; total: number }> {
   const conds = [];
+  // Soft-archive: default lists show ACTIVE only; the admin archived view opts in.
+  conds.push(
+    filters.archived === "archived"
+      ? sql`initiatives.archived_at IS NOT NULL`
+      : sql`initiatives.archived_at IS NULL`,
+  );
   if (filters.region?.length)
     conds.push(inArray(initiatives.region, filters.region as never));
   if (filters.segment?.length)
@@ -480,6 +488,25 @@ export type InitiativeDetail = {
   actionItems: (typeof actionItems.$inferSelect)[];
   stageChanges: (typeof stageChanges.$inferSelect)[];
 };
+
+/**
+ * Soft-archive an initiative (super-admin only, enforced at the route). Hides it
+ * from lists/dashboard/leaderboard/graph/duplicates via read-time exclusion; the
+ * record + history stay. Restore clears it. No score-ledger writes.
+ */
+export async function archiveInitiative(id: number, actorId: number): Promise<void> {
+  await db
+    .update(initiatives)
+    .set({ archivedAt: new Date(), archivedBy: actorId, updatedAt: new Date() })
+    .where(eq(initiatives.id, id));
+}
+
+export async function restoreInitiative(id: number): Promise<void> {
+  await db
+    .update(initiatives)
+    .set({ archivedAt: null, archivedBy: null, updatedAt: new Date() })
+    .where(eq(initiatives.id, id));
+}
 
 export async function getInitiativeDetail(
   id: number,

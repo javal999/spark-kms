@@ -86,6 +86,7 @@ export async function findDuplicateCandidates(
     -- to our configured threshold (default 0.4 >= 0.3, so nothing is missed).
     WHERE ${normalizedTitleSql} % ${normalized}
       AND similarity(${normalizedTitleSql}, ${normalized}) >= ${threshold}
+      AND initiatives.archived_at IS NULL
     ORDER BY similarity DESC, initiatives.id ASC
     LIMIT ${limit}
   `);

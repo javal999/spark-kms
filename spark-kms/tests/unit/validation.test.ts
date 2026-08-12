@@ -94,11 +94,11 @@ describe("initiativeInputSchema", () => {
     }
   });
 
-  it("rejects an off-enum region (e.g. historical Sulawesi)", () => {
+  it("rejects an off-enum region (e.g. Papua)", () => {
     expect(
       initiativeInputSchema.safeParse({
         ...validInitiative,
-        region: "Sulawesi",
+        region: "Papua",
       }).success,
     ).toBe(false);
   });

@@ -30,6 +30,7 @@ export const regionEnum = pgEnum("region", [
   "Sumatera",
   "CJWJ",
   "EJBN",
+  "Sulawesi",
 ]);
 
 export const segmentEnum = pgEnum("segment", [

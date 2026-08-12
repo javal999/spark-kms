@@ -40,13 +40,13 @@ describe("normalizer (REQ-U8)", () => {
     expect(rows[1].data?.pillar).toBe("Social Buzz");
   });
 
-  it("fails off-enum values with a clear per-row error (Sulawesi, Core Excellence Execution)", async () => {
+  it("fails off-enum values with a clear per-row error (Papua, Core Excellence Execution)", async () => {
     const buf = await buildUploadFile([
-      validRow({ Region: "Sulawesi" }),
+      validRow({ Region: "Papua" }),
       validRow({ Pillar: "Core Excellence Execution" }),
     ]);
     const { rows } = await parseWorkbook(buf);
-    expect(rows[0].errors.join()).toMatch(/Sulawesi.*not a valid region/i);
+    expect(rows[0].errors.join()).toMatch(/Papua.*not a valid region/i);
     expect(rows[1].errors.join()).toMatch(/Core Excellence Execution.*not a valid pillar/i);
   });
 });

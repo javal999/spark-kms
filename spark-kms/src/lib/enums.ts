@@ -9,6 +9,7 @@ export const REGIONS = [
   "Sumatera",
   "CJWJ",
   "EJBN",
+  "Sulawesi",
 ] as const;
 
 export const SEGMENTS = ["Halal PC", "Teen & ES", "Masstige", "All"] as const;

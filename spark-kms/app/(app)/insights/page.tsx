@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { readSession } from "@/src/lib/session";
-import { isAdmin } from "@/src/lib/session-config";
+import { isAdmin, isSuper } from "@/src/lib/session-config";
 import { flags } from "@/src/lib/flags";
 import { deriveActorHash } from "@/src/services/usage";
 import {
@@ -9,6 +9,8 @@ import {
   topClicks,
   usageTrend,
   ownFrequency,
+  activeUsers,
+  topInitiativesByViews,
   type DayRange,
 } from "@/src/services/usage-dashboard";
 import { TrendChart } from "@/components/usage-charts";
@@ -46,15 +48,18 @@ export default async function InsightsPage({
   const range: DayRange = { start: ymd(start), end: ymd(end) };
 
   const actorHash = deriveActorHash(`u:${session.userId}`);
-  const [pages, clicks, trend, own] = await Promise.all([
+  const [pages, clicks, trend, own, people, topInitiatives] = await Promise.all([
     topPages(range),
     topClicks(range),
     usageTrend(range),
     ownFrequency(actorHash, range),
+    activeUsers(range),
+    topInitiativesByViews(range),
   ]);
   const ownTotal = own.reduce((a, r) => a + r.views, 0);
   const totalViews = trend.reduce((a, t) => a + t.pageViews, 0);
   const totalClicks = trend.reduce((a, t) => a + t.clicks, 0);
+  const superAdmin = isSuper(session.role);
 
   return (
     <div className="flex flex-col gap-8">
@@ -62,8 +67,17 @@ export default async function InsightsPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Usage insights</h1>
           <p className="text-sm text-muted-foreground">
-            How the app is used. Aggregates only — no per-person tracking.
+            How everyone uses the app — all users, across the whole platform.
+            Aggregates only; pseudonymous, with no per-person identities.
           </p>
+          {superAdmin && flags.graph && (
+            <Link
+              href="/graph"
+              className="mt-1 inline-block text-sm text-primary hover:underline"
+            >
+              Open the knowledge graph →
+            </Link>
+          )}
         </div>
         <div className="flex gap-1 rounded-md border p-1">
           {PRESETS.map((p) => (
@@ -83,7 +97,8 @@ export default async function InsightsPage({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Active users" value={people} hint="distinct, this range" />
         <StatCard label="Page views" value={totalViews} />
         <StatCard label="Tracked clicks" value={totalClicks} />
         <StatCard label="Your page views" value={ownTotal} hint="you, this range" />
@@ -108,6 +123,49 @@ export default async function InsightsPage({
           rows={clicks.map((c) => ({ label: c.label, value: c.clicks }))}
         />
       </div>
+
+      {/* Bridge from usage to the entity/graph: which initiatives draw the most
+          attention across all users. Each row opens that initiative. */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Most-viewed initiatives
+        </h2>
+        <div className="rounded-lg border bg-card">
+          {topInitiatives.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              No initiative views yet.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {topInitiatives.map((t) => {
+                const max = Math.max(1, ...topInitiatives.map((x) => x.views));
+                return (
+                  <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <Link
+                      href={`/initiatives/${t.id}`}
+                      className="w-1/2 truncate text-sm font-medium hover:underline"
+                    >
+                      <span className="font-mono text-xs text-muted-foreground">
+                        #{t.id}
+                      </span>{" "}
+                      {t.title}
+                    </Link>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${(t.views / max) * 100}%` }}
+                      />
+                    </div>
+                    <span className="w-14 text-right text-sm font-semibold tabular-nums">
+                      {t.views}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

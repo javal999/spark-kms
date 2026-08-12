@@ -28,15 +28,19 @@ type NavLink = {
   minRole: Role;
   icon: LucideIcon;
   flag?: keyof typeof flags;
+  /** Renders indented as a child of the item above it (e.g. Graph under Insights). */
+  indent?: boolean;
 };
 
 const links: NavLink[] = [
   { href: "/", label: "Dashboard", minRole: "viewer", icon: LayoutDashboard },
   { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
-  { href: "/graph", label: "Graph", minRole: "viewer", icon: Share2, flag: "graph" },
   { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
   { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
+  // Insights + Graph are the analytics group. Graph is super-only and renders
+  // nested under Insights.
   { href: "/insights", label: "Insights", minRole: "admin", icon: BarChart3, flag: "tracking" },
+  { href: "/graph", label: "Graph", minRole: "super", icon: Share2, flag: "graph", indent: true },
   { href: "/admin", label: "Admin", minRole: "super", icon: Settings },
 ];
 
@@ -136,6 +140,7 @@ export function Nav({ role, name }: { role: Role; name?: string }) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
                   collapsed && "justify-center",
+                  l.indent && !collapsed && "ml-4 border-l border-border/70 pl-3",
                   active
                     ? "bg-primary/10 font-medium text-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",

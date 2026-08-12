@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireViewer } from "@/src/lib/guards";
+import { requireSuper } from "@/src/lib/guards";
 import { flags } from "@/src/lib/flags";
 import { buildEntityGraph, type NodeType } from "@/src/services/graph";
 
@@ -10,11 +10,12 @@ const list = (v: string | null) => (v ? v.split(",").filter(Boolean) : undefined
 
 /**
  * GET /api/graph (E6) — the multi-entity knowledge graph: typed nodes + edges,
- * filterable by region/segment/pillar and by node `types` (viewer, flag-gated).
+ * filterable by region/segment/pillar and by node `types` (super-admin only,
+ * flag-gated).
  */
 export async function GET(req: NextRequest) {
   if (!flags.graph) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const gate = await requireViewer();
+  const gate = await requireSuper();
   if (gate instanceof NextResponse) return gate;
 
   const sp = req.nextUrl.searchParams;

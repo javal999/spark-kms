@@ -1,5 +1,8 @@
-import { notFound } from "next/navigation";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { flags } from "@/src/lib/flags";
+import { readSession } from "@/src/lib/session";
+import { isSuper } from "@/src/lib/session-config";
 import { buildEntityGraph, type NodeType } from "@/src/services/graph";
 import { EntityGraphCanvas, NODE_COLOR } from "@/components/entity-graph-canvas";
 import { GraphFilters } from "@/components/graph-filters";
@@ -23,6 +26,8 @@ export default async function GraphPage({
   searchParams: Promise<SP>;
 }) {
   if (!flags.graph) notFound();
+  // Super-admin only (defence-in-depth; the nav also hides it below super).
+  if (!isSuper((await readSession()).role)) redirect("/");
   const sp = await searchParams;
   const rawTypes = list(sp.types);
   const types = rawTypes?.filter((t): t is NodeType => NODE_TYPES.includes(t as NodeType));
@@ -46,6 +51,14 @@ export default async function GraphPage({
           <p className="text-sm text-muted-foreground">
             Initiatives, people, and themes — how the knowledge connects. Click a node to open it.
           </p>
+          {flags.tracking && (
+            <Link
+              href="/insights"
+              className="mt-1 inline-block text-sm text-primary hover:underline"
+            >
+              Usage insights →
+            </Link>
+          )}
         </div>
         <div className="text-xs text-muted-foreground">
           {nodes.length} nodes · {edges.length} edges

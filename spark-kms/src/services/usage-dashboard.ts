@@ -67,6 +67,49 @@ export async function usageTrend(range: DayRange) {
 }
 
 /**
+ * Distinct active users over the range — a pseudonymous COUNT DISTINCT over
+ * actor_hash (logged-in users hash on their user id, anonymous viewers on their
+ * session). No identities are read; this answers "how many people use the app",
+ * not "who". Platform-wide, all users.
+ */
+export async function activeUsers(range: DayRange): Promise<number> {
+  const rows = await db.execute(sql`
+    SELECT count(DISTINCT actor_hash)::int AS n
+    FROM usage_events
+    WHERE ${jakartaDay} BETWEEN ${range.start} AND ${range.end}
+  `);
+  return Number((rows as unknown as { n: number }[])[0]?.n ?? 0);
+}
+
+/**
+ * Most-viewed initiatives across ALL users (page_view on /initiatives/[id]).
+ * Aggregate counts only — a bridge from usage to the entity/graph. The concrete
+ * id comes from the stored path; the join drops ids with no live initiative.
+ */
+export async function topInitiativesByViews(range: DayRange, limit = 10) {
+  const rows = await db.execute(sql`
+    WITH v AS (
+      SELECT split_part(path, '/', 3) AS id_txt, count(*)::int AS views
+      FROM usage_events
+      WHERE event_type = 'page_view'
+        AND route_pattern = '/initiatives/[id]'
+        AND split_part(path, '/', 3) ~ '^[0-9]+$'
+        AND ${jakartaDay} BETWEEN ${range.start} AND ${range.end}
+      GROUP BY 1
+    )
+    SELECT v.id_txt::int AS id, i.title AS title, v.views AS views
+    FROM v JOIN initiatives i ON i.id = v.id_txt::int
+    ORDER BY v.views DESC, id
+    LIMIT ${limit}
+  `);
+  return (rows as unknown as { id: number; title: string; views: number }[]).map((r) => ({
+    id: Number(r.id),
+    title: r.title,
+    views: Number(r.views),
+  }));
+}
+
+/**
  * The caller's OWN daily page-view frequency. `actorHash` MUST come from the
  * caller's session — never client input — so no one can read another person's
  * activity through this endpoint.

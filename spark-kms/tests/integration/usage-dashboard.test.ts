@@ -1,14 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/src/db";
 import { usageEvents } from "@/src/db/schema";
-import { resetAndSeed } from "@/tests/helpers/db";
+import { resetAndSeed, getSuperAdminId } from "@/tests/helpers/db";
+import { createInitiative } from "@/src/services/initiatives";
 import { rollupUsageDaily } from "@/src/services/usage-retention";
 import {
   topPages,
   topClicks,
   usageTrend,
   ownFrequency,
+  activeUsers,
+  topInitiativesByViews,
 } from "@/src/services/usage-dashboard";
+import type { NewInitiativeInput } from "@/src/validation/entry";
 
 const NOW = new Date("2026-07-22T05:00:00Z");
 const RANGE = { start: "2026-07-01", end: "2026-07-31" };
@@ -18,11 +22,12 @@ async function ev(
   eventType: "page_view" | "click",
   routePattern: string,
   actorHash: string,
-  extra: { elementId?: string; elementText?: string } = {},
+  extra: { elementId?: string; elementText?: string; path?: string } = {},
 ) {
   await db.insert(usageEvents).values({
     eventType,
     routePattern,
+    path: extra.path,
     sessionId: "s",
     actorHash,
     ts: new Date(NOW.getTime() - daysAgo * 24 * 3600 * 1000),
@@ -30,6 +35,20 @@ async function ev(
     elementText: extra.elementText,
   });
 }
+
+const baseInput = (title: string): NewInitiativeInput => ({
+  title,
+  region: "Sumatera",
+  segment: "Masstige",
+  pillar: "Social Buzz",
+  stage: "Idea",
+  pic: "P",
+  entryDate: "2026-07-01",
+  category: "Best Practice",
+  detail: "d",
+  bpOfWeekNominated: false,
+  bestPresenter: false,
+});
 
 describe("usage dashboard aggregations (T13)", () => {
   beforeEach(async () => {
@@ -73,5 +92,34 @@ describe("usage dashboard aggregations (T13)", () => {
     const theirs = await ownFrequency("them", RANGE);
     const theirsTotal = theirs.reduce((a, r) => a + r.views, 0);
     expect(theirsTotal).toBe(2); // "them" is 2 page views — never mixed with "me"
+  });
+
+  it("activeUsers counts distinct actors across all users, not events", async () => {
+    // Seeded set above has exactly two actors: "me" and "them".
+    expect(await activeUsers(RANGE)).toBe(2);
+  });
+});
+
+describe("platform-wide: most-viewed initiatives (Task 5)", () => {
+  beforeEach(async () => {
+    await resetAndSeed();
+  });
+
+  it("ranks initiatives by all-user page views and joins the live title", async () => {
+    const actor = await getSuperAdminId();
+    const a = await createInitiative(baseInput("Alpha Initiative"), actor);
+    const b = await createInitiative(baseInput("Bravo Initiative"), actor);
+
+    // Alpha: 3 views from 2 actors; Bravo: 1 view.
+    await ev(1, "page_view", "/initiatives/[id]", "me", { path: `/initiatives/${a.initiativeId}` });
+    await ev(1, "page_view", "/initiatives/[id]", "them", { path: `/initiatives/${a.initiativeId}` });
+    await ev(2, "page_view", "/initiatives/[id]", "me", { path: `/initiatives/${a.initiativeId}` });
+    await ev(1, "page_view", "/initiatives/[id]", "them", { path: `/initiatives/${b.initiativeId}` });
+    // A non-initiative view must not leak in.
+    await ev(1, "page_view", "/", "me");
+
+    const top = await topInitiativesByViews(RANGE);
+    expect(top[0]).toMatchObject({ id: a.initiativeId, title: "Alpha Initiative", views: 3 });
+    expect(top.find((t) => t.id === b.initiativeId)?.views).toBe(1);
   });
 });

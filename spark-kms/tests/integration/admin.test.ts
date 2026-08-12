@@ -46,12 +46,12 @@ describe("auto-award at submit (v1.2, D14 — no confirmation)", () => {
     expect(await pointsFor(initiativeId, "bp_of_week")).toBe(2);
   });
 
-  it("a ticked Best Presenter of the Week auto-awards +2 (best_presenter reason)", async () => {
+  it("a ticked Best Presenter of the Week auto-awards +1 (best_presenter reason)", async () => {
     const { initiativeId } = await createInitiative(
       { ...AREA, title: "BPres topic", entryDate: "2026-07-01", bpOfWeekNominated: false, bestPresenter: true },
       actor,
     );
-    expect(await pointsFor(initiativeId, "best_presenter")).toBe(2);
+    expect(await pointsFor(initiativeId, "best_presenter")).toBe(1);
   });
 
   it("the second Best Practice in the same Area/week is capped (no +2)", async () => {

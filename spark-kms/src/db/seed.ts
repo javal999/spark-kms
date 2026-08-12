@@ -17,7 +17,7 @@ export const SEED_CREDENTIALS = {
 } as const;
 
 export const DEFAULT_DEDUP_THRESHOLD = 0.4;
-export const TEMPLATE_VERSION = "v1.1";
+export const TEMPLATE_VERSION = "v1.2";
 
 /**
  * Idempotent seed: 2 admins (1 super) + app_config (viewer password hash,

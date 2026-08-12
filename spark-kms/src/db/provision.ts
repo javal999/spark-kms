@@ -46,7 +46,7 @@ async function main() {
     .values([
       { key: "viewer_password_hash", value: viewerHash },
       { key: "dedup_threshold", value: 0.4 },
-      { key: "template_version", value: "v1.1" },
+      { key: "template_version", value: "v1.2" },
     ])
     .onConflictDoUpdate({ target: appConfig.key, set: { value: sql`excluded.value` } });
 

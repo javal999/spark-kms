@@ -14,7 +14,7 @@ import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums"
  * never drift from what the app accepts.
  */
 
-export const DEFAULT_TEMPLATE_VERSION = "v1.1";
+export const DEFAULT_TEMPLATE_VERSION = "v1.2";
 
 export async function getTemplateVersion(): Promise<string> {
   const [row] = await db
@@ -40,6 +40,7 @@ export const TEMPLATE_COLUMNS = [
   "Need Follow Up Action/Unlocking",
   "Stage",
   "Best Practices of The Week",
+  "Best Presenter of the Week",
   "Link File",
 ] as const;
 
@@ -55,11 +56,12 @@ const HINTS: Record<string, string> = {
   Progress: "What happened. Required.",
   "Need Follow Up Action/Unlocking": "Follow-up needed, if any. Creates an action item.",
   Stage: "Dropdown. Blank = Idea.",
-  "Best Practices of The Week": "TRUE = nomination only. Super-admin confirms points.",
+  "Best Practices of The Week": "TRUE = Best-Practice-of-the-Week nomination. Awards +2 (1 per Area per week).",
+  "Best Presenter of the Week": "TRUE = Best-Presenter-of-the-Week. Awards +1 to the Presenter stream (1 per Area per week).",
   "Link File": "URL to deck/photo/file, if any.",
 };
 
-const WIDTHS = [14, 16, 12, 22, 26, 14, 34, 36, 44, 40, 14, 16, 28];
+const WIDTHS = [14, 16, 12, 22, 26, 14, 34, 36, 44, 40, 14, 16, 26, 28];
 const MAX_ROWS = 500;
 
 function colLetter(n: number): string {
@@ -92,7 +94,8 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
     "6. Max 500 rows per file. The same file cannot be committed twice.",
     "",
     "Notes",
-    "- Best Practices of The Week = TRUE is a nomination. Points (+2) are only granted after super-admin confirmation in the app.",
+    "- Best Practices of The Week = TRUE awards +2 to the Best Practice stream (1 per Area per week).",
+    "- Best Presenter of the Week = TRUE awards +1 to the Presenter stream (1 per Area per week).",
     "- Stage left blank defaults to Idea.",
     "- Upload is 2-phase: you will see a preview with per-row errors and duplicate matches before anything is saved.",
   ];
@@ -113,6 +116,7 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
     ["Category", CATEGORIES],
     ["Stage", STAGES],
     ["BPWeek", ["TRUE", "FALSE"]],
+    ["BPresWeek", ["TRUE", "FALSE"]],
   ];
   listCols.forEach(([header, values], c) => {
     lists.getCell(1, c + 1).value = header;
@@ -151,7 +155,7 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
     now, "Sumatera", "Masstige", "Sri Rafika Wulandari",
     "Activated New Touchpoint", "Best Practice", "Pop up store Make Over",
     "", "Make Over membuka pop up store di Living World, traffic 3x vs counter biasa",
-    "Plan activation: Occasion Makeup class", "Pilot", "FALSE",
+    "Plan activation: Occasion Makeup class", "Pilot", "FALSE", "FALSE",
     "https://example.com/deck",
   ];
   example.forEach((v, c) => {
@@ -182,6 +186,7 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
   dropdown(6, "Category");
   dropdown(11, "Stage");
   dropdown(12, "BPWeek");
+  dropdown(13, "BPresWeek");
   // Tanggal: date validation + force DD/MM/YYYY display on EVERY entry cell (not
   // just the example) so a user's date never renders in their Excel locale's
   // default format.

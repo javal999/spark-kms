@@ -106,9 +106,9 @@ describe("weekly awards — bp_of_week & best_presenter (§5.1/5.2, v1.2)", () =
     expect(dup).toEqual({ status: "skipped", reason: "area-week-cap" });
   });
 
-  it("best_presenter awards +2 to the presenter (Best Presenter) stream, capped 1/area/week", async () => {
+  it("best_presenter awards +1 to the presenter (Best Presenter) stream, capped 1/area/week", async () => {
     const first = await award({ reason: "best_presenter", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    expect(first).toMatchObject({ status: "awarded", points: 2, stream: "presenter" });
+    expect(first).toMatchObject({ status: "awarded", points: 1, stream: "presenter" });
     const dup = await award({ reason: "best_presenter", initiativeId: initB, ...AREA, effectiveDate: "2026-07-02", actorId: actor });
     expect(dup).toEqual({ status: "skipped", reason: "area-week-cap" });
   });

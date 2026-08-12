@@ -10,7 +10,7 @@ import { weekDateRange } from "@/src/services/week";
  * Implements the requirements §5 rulebook:
  *   best_practice: new_initiative +1, entry +1 (max 1/initiative/day on
  *                  effective_date), bp_of_week +2
- *   presenter:     presentation +2 (max 1/area/week)
+ *   presenter:     best_presenter +1 (Best Presenter of the Week, max 1/area/week)
  *   cee:           cee_participation +1
  *   cee_best:      cee_best +2
  *   adjustment:    arbitrary points on a chosen stream (note required)
@@ -55,7 +55,8 @@ const RULES: Record<string, { stream: Stream; points: number }> = {
   new_initiative: { stream: "best_practice", points: 1 },
   entry: { stream: "best_practice", points: 1 },
   bp_of_week: { stream: "best_practice", points: 2 },
-  best_presenter: { stream: "presenter", points: 2 },
+  // Best Presenter of the Week: +1 to the Presenter stream (1/Area/week).
+  best_presenter: { stream: "presenter", points: 1 },
 };
 
 /** SQL predicate: this event id has NOT been reversed. */

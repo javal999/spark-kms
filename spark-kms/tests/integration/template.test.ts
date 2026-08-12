@@ -27,10 +27,10 @@ describe("template generator (3.1)", () => {
     await wb.xlsx.load(buffer as unknown as ArrayBuffer);
     const meta = wb.getWorksheet("_meta")!;
     expect(String(meta.getCell(1, 1).value)).toBe("template_version");
-    expect(String(meta.getCell(1, 2).value)).toBe("v1.1");
+    expect(String(meta.getCell(1, 2).value)).toBe("v1.2");
   });
 
-  it("has the 13 template headers and dropdown validations sourced from Lists", async () => {
+  it("has the 14 template headers and dropdown validations sourced from Lists", async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer as unknown as ArrayBuffer);
     const en = wb.getWorksheet("Entries")!;
@@ -58,7 +58,7 @@ describe("template generator (3.1)", () => {
 
   it("round-trips: parsing the generated template yields the example row as valid", async () => {
     const { rows, templateVersion } = await parseWorkbook(buffer);
-    expect(templateVersion).toBe("v1.1");
+    expect(templateVersion).toBe("v1.2");
     expect(rows).toHaveLength(1); // the example row
     expect(rows[0].errors).toEqual([]);
     expect(rows[0].data?.region).toBe("Sumatera");

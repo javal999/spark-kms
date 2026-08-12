@@ -53,9 +53,8 @@ export default async function SystemOverviewPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>
             <strong>Three roles:</strong> <em>viewer</em> (read-only),{" "}
-            <em>admin</em> (create/edit, uploads, scoring console),{" "}
-            <em>super</em> (everything, incl. this console, access management,
-            archive).
+            <em>admin</em> (create/edit, uploads, scoring console, archive),{" "}
+            <em>super</em> (everything, incl. this console, access management).
           </li>
           <li>
             <strong>M365 SSO (Entra ID)</strong> is the primary login. An
@@ -122,13 +121,15 @@ export default async function SystemOverviewPage() {
           replicated-from. A multi-entity graph adds people (PICs) and tags as
           nodes, with per-person / per-tag hub pages. AI-suggested links use
           embeddings (OpenRouter) with human confirm — never auto-linked.
-          Flag-gated (<code>FEATURE_GRAPH</code>).
+          Flag-gated (<code>FEATURE_GRAPH</code>) and <strong>super-admin
+          only</strong>; the graph and <strong>Insights</strong> cross-link so
+          you can move between what connects and how it is used.
         </p>
       </Section>
 
-      <Section title="Archive (super-admin)">
+      <Section title="Archive (admin)">
         <p>
-          A super-admin can <strong>archive</strong> an initiative from its
+          An admin or super-admin can <strong>archive</strong> an initiative from its
           detail page. Archived initiatives are hidden read-time from lists, the
           dashboard, the leaderboard, top-initiatives, the graphs and
           duplicate-matching — but the record and its history stay, and{" "}

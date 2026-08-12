@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { listInitiatives } from "@/src/services/initiatives";
+import { readSession } from "@/src/lib/session";
+import { isAdmin } from "@/src/lib/session-config";
 import { InitiativesFilters } from "@/components/initiatives-filters";
 import { StageBadge } from "@/components/badges";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,12 @@ export default async function InitiativesPage({
 }) {
   const sp = await searchParams;
 
+  // Admins (and supers) can flip the list to archived initiatives so they can
+  // find and restore one — the super-only Admin → Archived list isn't reachable
+  // by plain admins. Viewers never see archived rows.
+  const admin = isAdmin((await readSession()).role);
+  const showArchived = admin && first(sp.archived) === "1";
+
   const sort = first(sp.sort) ?? "id";
   const dir = first(sp.dir) === "desc" ? "desc" : "asc";
   const page = Math.max(1, Number(first(sp.page) ?? "1"));
@@ -72,6 +80,7 @@ export default async function InitiativesPage({
     dir,
     page,
     pageSize,
+    ...(showArchived ? { archived: "archived" as const } : {}),
   });
 
   // Build a sort link that preserves other params and toggles direction.
@@ -92,13 +101,30 @@ export default async function InitiativesPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Initiatives</h1>
-        <span className="text-sm text-muted-foreground">
-          {total} total
-        </span>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {showArchived ? "Archived initiatives" : "Initiatives"}
+        </h1>
+        <div className="flex items-baseline gap-4">
+          {admin && (
+            <Link
+              href={showArchived ? "/initiatives" : "/initiatives?archived=1"}
+              className="text-sm text-muted-foreground hover:underline"
+              data-testid="archived-toggle"
+            >
+              {showArchived ? "← Active initiatives" : "View archived"}
+            </Link>
+          )}
+          <span className="text-sm text-muted-foreground">{total} total</span>
+        </div>
       </div>
 
-      <InitiativesFilters />
+      {showArchived && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          Showing <strong>archived</strong> initiatives. Open one to restore it.
+        </p>
+      )}
+
+      {!showArchived && <InitiativesFilters />}
 
       <div className="rounded-lg border">
         <Table>

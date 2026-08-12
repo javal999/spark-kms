@@ -4,7 +4,7 @@ import { getInitiativeDetail } from "@/src/services/initiatives";
 import { getInitiativeEditLog } from "@/src/services/edits";
 import { initiativeStreamTotals } from "@/src/services/scores";
 import { readSession } from "@/src/lib/session";
-import { isAdmin, isSuper } from "@/src/lib/session-config";
+import { isAdmin } from "@/src/lib/session-config";
 import { ArchiveControl } from "@/components/archive-control";
 import { flags } from "@/src/lib/flags";
 import { RelatedPanel } from "@/components/related-panel";
@@ -30,7 +30,6 @@ export default async function InitiativeDetailPage({
 
   const session = await readSession();
   const admin = isAdmin(session.role);
-  const superAdmin = isSuper(session.role);
   const { initiative, entries, actionItems, stageChanges } = detail;
   const points = await initiativeStreamTotals(initiative.id);
   const editHistory = admin ? await getInitiativeEditLog(initiative.id) : [];
@@ -54,7 +53,7 @@ export default async function InitiativeDetailPage({
               This initiative is <strong>archived</strong> — hidden from lists,
               the leaderboard, and the graph. Its history is kept.
             </span>
-            {superAdmin && (
+            {admin && (
               <ArchiveControl id={initiative.id} archived />
             )}
           </div>
@@ -118,7 +117,7 @@ export default async function InitiativeDetailPage({
             />
           </div>
         )}
-        {superAdmin && !initiative.archivedAt && (
+        {admin && !initiative.archivedAt && (
           <div className="mt-1">
             <ArchiveControl id={initiative.id} archived={false} />
           </div>

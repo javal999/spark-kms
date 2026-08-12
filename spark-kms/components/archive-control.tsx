@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 /**
- * Super-admin archive / restore toggle for an initiative (TRD: soft-archive).
+ * Admin/super archive / restore toggle for an initiative (TRD: soft-archive).
  * Archiving hides it from lists, leaderboard, dashboard, graph and duplicate
- * matching; restore brings it back. Guarded server-side by requireSuper.
+ * matching; restore brings it back. Guarded server-side by requireAdmin.
  */
 export function ArchiveControl({
   id,

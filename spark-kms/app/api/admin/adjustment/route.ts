@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireSuper } from "@/src/lib/guards";
+import { requireAdmin } from "@/src/lib/guards";
 import { regionEnum, segmentEnum, scoreStreamEnum } from "@/src/db/schema";
 import { isoDateSchema } from "@/src/validation/entry";
 import { postAdjustment } from "@/src/services/admin";
@@ -17,9 +17,13 @@ const schema = z.object({
   initiativeId: z.number().int().optional(),
 });
 
-/** POST /api/admin/adjustment — manual adjustment with mandatory note (super). */
+/**
+ * POST /api/admin/adjustment — manual adjustment with a mandatory note.
+ * Open to any admin since D24 (was super-admin only, REQ-S3). The note and
+ * `created_by` are the audit trail; the edit log shows who posted what.
+ */
 export async function POST(req: NextRequest) {
-  const gate = await requireSuper();
+  const gate = await requireAdmin();
   if (gate instanceof NextResponse) return gate;
 
   let body: z.infer<typeof schema>;

@@ -48,7 +48,6 @@ describe("GOLDEN: replaying the 45 real entries reproduces the file's per-area B
           category: e.category,
           detail: e.title,
           bpOfWeekNominated: e.bpConfirmed,
-          bestPresenter: false,
         },
         actor,
       );

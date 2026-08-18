@@ -82,7 +82,7 @@ export const scoreReasonEnum = pgEnum("score_reason", [
   "new_initiative",
   "entry",
   "bp_of_week",
-  "best_presenter", // v1.2 (D12): +2 Best Presenter of the Week
+  "best_presenter", // RETIRED by D25; kept so reversed rows stay auditable
   "presentation", // retired v1.2 (kept for historical rows)
   "cee_participation", // retired v1.2
   "cee_best", // retired v1.2
@@ -202,7 +202,9 @@ export const entries = pgTable(
     bpOfWeekConfirmedAt: timestamp("bp_of_week_confirmed_at", {
       withTimezone: true,
     }),
-    // v1.2 (D12): "Best Presenter of the Week" — auto-awards +2 when set.
+    // RETIRED by D25: nothing writes this any more. Kept (always false on new
+    // rows) so historical entries stay readable; dropping it would be a
+    // destructive migration.
     bestPresenter: boolean("best_presenter").notNull().default(false),
     linkUrl: text("link_url"),
     outcomeMetric: text("outcome_metric"),

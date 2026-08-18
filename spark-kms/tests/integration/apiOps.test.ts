@@ -67,7 +67,9 @@ describe("apiOps (Gate 5)", () => {
     });
     expect(res.mode).toBe("created");
     const totals = await initiativeStreamTotals(res.initiativeId);
-    expect(totals.best_practice).toBe(1);
+    // D23: the new-initiative +1 is a contribution point, not a Best Practice one.
+    expect(totals.best_practice).toBe(0);
+    expect(totals.best_presenter).toBe(1);
     expect(totals.total).toBe(1);
 
     const [ini] = await db
@@ -84,7 +86,9 @@ describe("apiOps (Gate 5)", () => {
       force_new: true,
     });
     const totals = await initiativeStreamTotals(res.initiativeId);
-    expect(totals.best_practice).toBe(3); // +1 new +2 bp_of_week (first entry folds in)
+    // D23: +2 bp_of_week on Best Practice, +1 new_initiative on Contribution.
+    expect(totals.best_practice).toBe(2);
+    expect(totals.best_presenter).toBe(1);
     expect(totals.total).toBe(3);
   });
 

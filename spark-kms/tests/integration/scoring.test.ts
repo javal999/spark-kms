@@ -32,8 +32,8 @@ beforeEach(async () => {
   initB = await insertInitiative(actor, { title: "B", ...AREA });
 });
 
-describe("best_practice stream (§5.1)", () => {
-  it("new_initiative awards +1 best_practice", async () => {
+describe("contribution stream (§5.1, D23)", () => {
+  it("new_initiative awards +1 to the contribution (presenter) stream", async () => {
     const r = await award({
       reason: "new_initiative",
       initiativeId: initA,
@@ -41,7 +41,32 @@ describe("best_practice stream (§5.1)", () => {
       effectiveDate: "2026-07-01",
       actorId: actor,
     });
-    expect(r).toMatchObject({ status: "awarded", points: 1, stream: "best_practice" });
+    // D23: best_practice holds ONLY the Best-Practice-of-the-Week award.
+    expect(r).toMatchObject({ status: "awarded", points: 1, stream: "presenter" });
+  });
+
+  it("entry awards +1 to the contribution stream, not best_practice", async () => {
+    const r = await award({
+      reason: "entry",
+      initiativeId: initB,
+      ...AREA,
+      effectiveDate: "2026-07-03",
+      actorId: actor,
+    });
+    expect(r).toMatchObject({ status: "awarded", points: 1, stream: "presenter" });
+  });
+
+  it("best_practice carries bp_of_week and nothing else", async () => {
+    await award({ reason: "new_initiative", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
+    await award({ reason: "entry", initiativeId: initA, ...AREA, effectiveDate: "2026-07-02", actorId: actor });
+    await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
+
+    const rows = await db.execute<{ stream: string; reason: string }>(sql`
+      SELECT stream::text AS stream, reason::text AS reason FROM score_events
+      WHERE stream = 'best_practice'
+    `);
+    const reasons = (rows as unknown as Array<{ reason: string }>).map((r) => r.reason);
+    expect(reasons).toEqual(["bp_of_week"]);
   });
 
   it("entry awards +1, but a second entry same initiative+date is capped (skipped)", async () => {
@@ -97,7 +122,7 @@ describe("best_practice stream (§5.1)", () => {
   });
 });
 
-describe("weekly awards — bp_of_week & best_presenter (§5.1/5.2, v1.2)", () => {
+describe("weekly award — bp_of_week (§5.1; best_presenter retired by D25)", () => {
   it("bp_of_week awards +2 best_practice, capped 1 per area per week", async () => {
     const first = await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
     expect(first).toMatchObject({ status: "awarded", points: 2, stream: "best_practice" });
@@ -106,17 +131,8 @@ describe("weekly awards — bp_of_week & best_presenter (§5.1/5.2, v1.2)", () =
     expect(dup).toEqual({ status: "skipped", reason: "area-week-cap" });
   });
 
-  it("best_presenter awards +1 to the presenter (Best Presenter) stream, capped 1/area/week", async () => {
-    const first = await award({ reason: "best_presenter", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    expect(first).toMatchObject({ status: "awarded", points: 1, stream: "presenter" });
-    const dup = await award({ reason: "best_presenter", initiativeId: initB, ...AREA, effectiveDate: "2026-07-02", actorId: actor });
-    expect(dup).toEqual({ status: "skipped", reason: "area-week-cap" });
-  });
-
-  it("the two weekly caps are independent, reset next week, and are per-area", async () => {
+  it("the weekly cap resets next week and is per-area", async () => {
     await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
-    // best_presenter same area/week still allowed (different reason).
-    expect((await award({ reason: "best_presenter", initiativeId: initA, ...AREA, effectiveDate: "2026-07-01", actorId: actor })).status).toBe("awarded");
     // bp_of_week next week → allowed.
     expect((await award({ reason: "bp_of_week", initiativeId: initA, ...AREA, effectiveDate: "2026-07-08", actorId: actor })).status).toBe("awarded");
     // same week, different area → allowed.

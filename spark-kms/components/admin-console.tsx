@@ -34,10 +34,6 @@ async function postJSON(url: string, body: unknown, method = "POST") {
   return { ok: res.ok, data };
 }
 
-function todayJakarta() {
-  return new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
-}
-
 type Admin = {
   id: number;
   email: string;
@@ -453,14 +449,19 @@ function AreaPicker({
   );
 }
 
-export function ScoringPanel() {
+/**
+ * @param today - the current Jakarta date ("YYYY-MM-DD") from the server. An
+ *   adjustment's effective_date lands on a score event, so the date is derived
+ *   server-side by `week.ts` (CLAUDE.md), never from the browser clock.
+ */
+export function ScoringPanel({ today }: { today: string }) {
   const router = useRouter();
   const [aRegion, setARegion] = useState("");
   const [aSegment, setASegment] = useState("");
   const [aStream, setAStream] = useState("best_practice");
   const [points, setPoints] = useState("");
   const [note, setNote] = useState("");
-  const [aDate, setADate] = useState(todayJakarta());
+  const [aDate, setADate] = useState(today);
 
   async function adjust() {
     if (!aRegion || !aSegment) return toast.error("Pick an area");
@@ -478,8 +479,9 @@ export function ScoringPanel() {
       <CardHeader>
         <CardTitle>Adjustments</CardTitle>
         <CardDescription>
-          Post a manual score adjustment to an area (note required). Best Practice
-          and Best Presenter of the Week are auto-scored at submit — no console needed.
+          Post a manual score adjustment to an area (note required). Best
+          Practice of the Week is auto-scored at submit — no console needed for
+          that.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -491,7 +493,8 @@ export function ScoringPanel() {
               <SelectTrigger data-testid="adj-stream"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="best_practice">Best Practice</SelectItem>
-                <SelectItem value="presenter">Best Presenter</SelectItem>
+                {/* D23: `presenter` is the Contribution stream. */}
+                <SelectItem value="presenter">Contribution</SelectItem>
               </SelectContent>
             </Select>
           </div>

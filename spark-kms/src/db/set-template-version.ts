@@ -5,7 +5,7 @@ import { DEFAULT_TEMPLATE_VERSION } from "@/src/services/template";
 /**
  * Bump the stored bulk-upload template version so previously-downloaded files
  * are flagged "outdated" (nudging a re-download of the template that now carries
- * the Best Presenter of the Week column). Idempotent. Run with the prod
+ * the current template column set). Idempotent. Run with the prod
  * DATABASE_URL, e.g. `npx tsx --env-file=<envfile> src/db/set-template-version.ts`.
  */
 async function main() {

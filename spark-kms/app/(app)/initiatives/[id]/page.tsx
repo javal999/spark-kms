@@ -128,8 +128,10 @@ export default async function InitiativeDetailPage({
       <section className="grid grid-cols-3 gap-3">
         {(
           [
+            // D23: Best Practice = the weekly award only; everything else
+            // (new initiative, entries) is Contribution.
             ["Best Practice", points.best_practice],
-            ["Presenter", points.best_presenter],
+            ["Contribution", points.best_presenter],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="rounded-lg border bg-card px-4 py-3">

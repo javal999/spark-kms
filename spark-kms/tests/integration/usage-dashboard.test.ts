@@ -47,7 +47,6 @@ const baseInput = (title: string): NewInitiativeInput => ({
   category: "Best Practice",
   detail: "d",
   bpOfWeekNominated: false,
-  bestPresenter: false,
 });
 
 describe("usage dashboard aggregations (T13)", () => {

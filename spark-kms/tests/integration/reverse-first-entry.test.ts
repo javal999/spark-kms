@@ -28,7 +28,6 @@ const base: NewInitiativeInput = {
   category: "Best Practice",
   detail: "d",
   bpOfWeekNominated: false,
-  bestPresenter: false,
 } as NewInitiativeInput;
 
 let actor: number;

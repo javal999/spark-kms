@@ -29,7 +29,6 @@ const base = (title: string, bp = false): NewInitiativeInput =>
     category: "Best Practice",
     detail: "d",
     bpOfWeekNominated: bp,
-    bestPresenter: false,
   }) as NewInitiativeInput;
 
 describe("initiative archive / restore", () => {

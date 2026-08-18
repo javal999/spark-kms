@@ -14,7 +14,10 @@ import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums"
  * never drift from what the app accepts.
  */
 
-export const DEFAULT_TEMPLATE_VERSION = "v1.2";
+// v1.3 (D25): the "Best Presenter of the Week" column is gone. Older files
+// still upload — the parser maps by header name — so this is a warning-level
+// version difference, per REQ-U0, not a rejection.
+export const DEFAULT_TEMPLATE_VERSION = "v1.3";
 
 export async function getTemplateVersion(): Promise<string> {
   const [row] = await db
@@ -40,7 +43,8 @@ export const TEMPLATE_COLUMNS = [
   "Need Follow Up Action/Unlocking",
   "Stage",
   "Best Practices of The Week",
-  "Best Presenter of the Week",
+  // "Best Presenter of the Week" removed by D25. Files that still carry the
+  // column upload fine — the parser maps columns by header name.
   "Link File",
 ] as const;
 
@@ -57,7 +61,6 @@ const HINTS: Record<string, string> = {
   "Need Follow Up Action/Unlocking": "Follow-up needed, if any. Creates an action item.",
   Stage: "Dropdown. Blank = Idea.",
   "Best Practices of The Week": "TRUE = Best-Practice-of-the-Week nomination. Awards +2 (1 per Area per week).",
-  "Best Presenter of the Week": "TRUE = Best-Presenter-of-the-Week. Awards +1 to the Presenter stream (1 per Area per week).",
   "Link File": "URL to deck/photo/file, if any.",
 };
 
@@ -95,7 +98,6 @@ export async function generateTemplate(now: Date = new Date()): Promise<Buffer> 
     "",
     "Notes",
     "- Best Practices of The Week = TRUE awards +2 to the Best Practice stream (1 per Area per week).",
-    "- Best Presenter of the Week = TRUE awards +1 to the Presenter stream (1 per Area per week).",
     "- Stage left blank defaults to Idea.",
     "- Upload is 2-phase: you will see a preview with per-row errors and duplicate matches before anything is saved.",
   ];

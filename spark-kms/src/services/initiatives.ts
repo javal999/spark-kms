@@ -98,7 +98,6 @@ export async function createInitiativeInTx(
         detail: input.detail,
         followUp: input.followUp,
         bpOfWeekNominated: input.bpOfWeekNominated,
-        bestPresenter: input.bestPresenter,
         linkUrl: input.linkUrl,
         uploadBatchId: opts.uploadBatchId,
         createdBy: actorId,
@@ -119,8 +118,8 @@ export async function createInitiativeInTx(
     // submit, so it earns one base point, not two (Levi decision 2026-07-28,
     // supersedes §5.1's separate "entry +1" for the creation entry). LATER
     // progress entries each earn +1 via appendEntry. Lands on entry_date so a
-    // backdated historical import scores in the correct week. A BP-of-week
-    // nomination scores NOTHING here — only super-admin confirm does.
+    // backdated historical import scores in the correct week. The two weekly
+    // flags are awarded just below by awardWeeklyFlags (D14: no confirmation).
     await award(
       {
         reason: "new_initiative",
@@ -133,11 +132,10 @@ export async function createInitiativeInTx(
       },
       tx,
     );
-    // v1.2 (D14): the two weekly awards auto-score +2 at submit (1/Area/week cap
+    // v1.2 (D14): the weekly award auto-scores +2 at submit (1/Area/week cap
     // enforced inside award()); a ticked box that hits the cap is silently skipped.
     await awardWeeklyFlags(tx, {
       bpOfWeek: input.bpOfWeekNominated,
-      bestPresenter: input.bestPresenter,
       initiativeId: ini.id,
       region: input.region,
       segment: input.segment,
@@ -197,7 +195,6 @@ export async function appendEntryInTx(
         detail: input.detail,
         followUp: input.followUp,
         bpOfWeekNominated: input.bpOfWeekNominated,
-        bestPresenter: input.bestPresenter,
         linkUrl: input.linkUrl,
         uploadBatchId: opts.uploadBatchId,
         createdBy: actorId,
@@ -213,8 +210,8 @@ export async function appendEntryInTx(
       opts,
     );
 
-    // Scoring (§5.1): append earns entry points only (day-capped), attributed
-    // to the initiative's current Area.
+    // Scoring (§5.2): append earns entry points only (day-capped), on the
+    // Contribution stream (D23), attributed to the initiative's current Area.
     await award(
       {
         reason: "entry",
@@ -229,7 +226,6 @@ export async function appendEntryInTx(
     );
     await awardWeeklyFlags(tx, {
       bpOfWeek: input.bpOfWeekNominated,
-      bestPresenter: input.bestPresenter,
       initiativeId,
       region: owner.region,
       segment: owner.segment,
@@ -243,14 +239,15 @@ export async function appendEntryInTx(
 }
 
 /**
- * v1.2 (D14): award the two weekly +2 flags at submit. Each is capped 1/Area/week
- * inside award(); a ticked box that hits the cap is silently skipped (no error).
+ * v1.2 (D14): award the weekly flag at submit, no confirmation — Best Practice
+ * of the Week +2. Point values live in RULES in scoring.ts. Capped 1/Area/week
+ * inside award(); a ticked box that hits the cap is silently skipped (no
+ * error). Best Presenter of the Week was retired by D25.
  */
 async function awardWeeklyFlags(
   tx: Tx,
   a: {
     bpOfWeek: boolean;
-    bestPresenter: boolean;
     initiativeId: number;
     region: NewInitiativeInput["region"];
     segment: NewInitiativeInput["segment"];
@@ -268,7 +265,6 @@ async function awardWeeklyFlags(
     refId: a.refId,
   };
   if (a.bpOfWeek) await award({ reason: "bp_of_week", ...area }, tx);
-  if (a.bestPresenter) await award({ reason: "best_presenter", ...area }, tx);
 }
 
 export type ActionItemDraft = {

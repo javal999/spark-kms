@@ -31,7 +31,6 @@ describe("Region: Sulawesi", () => {
       category: "Best Practice",
       detail: "d",
       bpOfWeekNominated: true,
-      bestPresenter: false,
     };
     const { initiativeId } = await createInitiative(input, actor);
     expect(initiativeId).toBeGreaterThan(0);

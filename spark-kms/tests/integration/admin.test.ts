@@ -40,27 +40,33 @@ beforeEach(async () => {
 describe("auto-award at submit (v1.2, D14 — no confirmation)", () => {
   it("a ticked Best Practice of the Week auto-awards +2 immediately", async () => {
     const { initiativeId } = await createInitiative(
-      { ...AREA, title: "BP topic", entryDate: "2026-07-01", bpOfWeekNominated: true, bestPresenter: false },
+      { ...AREA, title: "BP topic", entryDate: "2026-07-01", bpOfWeekNominated: true },
       actor,
     );
     expect(await pointsFor(initiativeId, "bp_of_week")).toBe(2);
   });
 
-  it("a ticked Best Presenter of the Week auto-awards +1 (best_presenter reason)", async () => {
+  it("a retired Best Presenter flag awards nothing (D25)", async () => {
     const { initiativeId } = await createInitiative(
-      { ...AREA, title: "BPres topic", entryDate: "2026-07-01", bpOfWeekNominated: false, bestPresenter: true },
+      {
+        ...AREA,
+        title: "BPres topic",
+        entryDate: "2026-07-01",
+        bpOfWeekNominated: false,
+        bestPresenter: true,
+      } as never,
       actor,
     );
-    expect(await pointsFor(initiativeId, "best_presenter")).toBe(1);
+    expect(await pointsFor(initiativeId, "best_presenter")).toBe(0);
   });
 
   it("the second Best Practice in the same Area/week is capped (no +2)", async () => {
     await createInitiative(
-      { ...AREA, title: "First", entryDate: "2026-07-01", bpOfWeekNominated: true, bestPresenter: false },
+      { ...AREA, title: "First", entryDate: "2026-07-01", bpOfWeekNominated: true },
       actor,
     );
     const second = await createInitiative(
-      { ...AREA, title: "Second", entryDate: "2026-07-02", bpOfWeekNominated: true, bestPresenter: false },
+      { ...AREA, title: "Second", entryDate: "2026-07-02", bpOfWeekNominated: true },
       actor,
     );
     expect(await pointsFor(second.initiativeId, "bp_of_week")).toBe(0);
@@ -68,7 +74,7 @@ describe("auto-award at submit (v1.2, D14 — no confirmation)", () => {
 
   it("no flags → no weekly points", async () => {
     const { initiativeId } = await createInitiative(
-      { ...AREA, title: "Plain", entryDate: "2026-07-01", bpOfWeekNominated: false, bestPresenter: false },
+      { ...AREA, title: "Plain", entryDate: "2026-07-01", bpOfWeekNominated: false },
       actor,
     );
     expect(await pointsFor(initiativeId, "bp_of_week")).toBe(0);

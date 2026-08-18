@@ -84,7 +84,7 @@ A schema + migration prep  →  B scoring engine (2-stream)  →  D PIC director
 - **F5 (items 14–17):** detail — drop CEE/CEE-Best tiles (Total = 2 streams); drop the "Best Practice" category badge (keep "Unlocking"); move the doc link above the description as "View doc ↗"; remove the follow-up display block (keep the field feeding action items).
 - **F6 (item 18, D18):** leaderboard — 2 stream columns; show Pillar + PIC per initiative on the **area drill-down** page.
 - **F7 (items 5–6):** Submit — rename checkbox to "Best Practice of the Week"; add "Best Presenter of the Week"; both auto-award (wired in B2).
-- **Gate F:** `tsc`/lint/build clean; browser-verify each screen (no horizontal scroll, nav collapse, filter popover, auto-award toast). 172+ tests still green.
+- **Gate F:** `tsc`/lint/build clean; browser-verify each screen (no horizontal scroll, nav collapse, filter popover, auto-award toast). All tests still green (172 at the time of writing; 287 as of 2026-08-13).
 
 ## Workstream G — deploy + migrate (gated, live) `[A]`
 

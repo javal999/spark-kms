@@ -18,7 +18,10 @@ const first = (v: string | string[] | undefined) =>
 
 const STREAMS = [
   { key: "best_practice", label: "Best Practice" },
-  { key: "best_presenter", label: "Best Presenter" },
+  // D23: this stream now carries every point that is not the weekly Best
+  // Practice award — new initiatives and entries. The API
+  // field name stays `best_presenter` for partner-integration compatibility.
+  { key: "best_presenter", label: "Contribution" },
 ] as const;
 
 export default async function LeaderboardPage({

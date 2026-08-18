@@ -128,6 +128,18 @@ export async function parseWorkbook(buffer: Buffer): Promise<{
   const sheet = wb.getWorksheet("Entries") ?? wb.worksheets[0];
   const rows: ParsedRow[] = [];
 
+  // Map each template column to the position it actually occupies in THIS
+  // file, by header name (row 1). Reading by fixed position would silently
+  // misread every file whose column set differs from the current template —
+  // e.g. a file still carrying the retired "Best Presenter of the Week" column
+  // (D25) would have its Link File read from the wrong cell. Falls back to
+  // template order when a header is missing or renamed.
+  const headerIndex = new Map<string, number>();
+  sheet.getRow(1).eachCell((cell, col) => {
+    const name = cellText(cell.value).trim();
+    if (name && !headerIndex.has(name)) headerIndex.set(name, col);
+  });
+
   const lastRow = sheet.rowCount;
   // Data starts at row 3 (row 1 = headers, row 2 = hints).
   for (let r = 3; r <= lastRow; r++) {
@@ -136,12 +148,19 @@ export async function parseWorkbook(buffer: Buffer): Promise<{
     let hasAny = false;
     const cellValues: ExcelJS.CellValue[] = [];
     TEMPLATE_COLUMNS.forEach((col, c) => {
-      const value = row.getCell(c + 1).value;
+      const value = row.getCell(headerIndex.get(col) ?? c + 1).value;
       cellValues[c] = value;
       const text = cellText(value).trim();
       raw[col] = text;
       if (text) hasAny = true;
     });
+    // Also expose every header the file actually carries, so alias spellings
+    // ("Best Practice of the Week" vs "Best Practices of The Week") resolve by
+    // name rather than by luck of position.
+    for (const [name, col] of headerIndex) {
+      if (name in raw) continue;
+      raw[name] = cellText(row.getCell(col).value).trim();
+    }
     // Skip fully-blank rows (and the example row if it's untouched? no — the
     // example is grey but real text; users are told to delete it. We parse it.)
     if (!hasAny) continue;
@@ -199,7 +218,6 @@ function buildRow(
     bpOfWeekNominated: parseBool(
       raw["Best Practice of the Week"] ?? raw["Best Practices of The Week"],
     ),
-    bestPresenter: parseBool(raw["Best Presenter of the Week"]),
     linkUrl: raw["Link File"] || undefined,
   };
 
@@ -448,7 +466,6 @@ export async function commitUpload(
         detail: data.detail,
         followUp: data.followUp,
         bpOfWeekNominated: data.bpOfWeekNominated,
-        bestPresenter: data.bestPresenter,
         linkUrl: data.linkUrl,
       };
       const withActionItem = {

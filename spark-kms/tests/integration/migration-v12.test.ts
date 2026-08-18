@@ -3,7 +3,6 @@ import { sql, eq } from "drizzle-orm";
 import { db } from "@/src/db";
 import { scoreEvents } from "@/src/db/schema";
 import { createInitiative } from "@/src/services/initiatives";
-import { award } from "@/src/services/scoring";
 import { reverseRetiredStreams } from "@/src/db/reverse-retired-streams";
 import { resetAndSeed, getSuperAdminId } from "@/tests/helpers/db";
 import type { NewInitiativeInput } from "@/src/validation/entry";
@@ -21,7 +20,6 @@ const base: NewInitiativeInput = {
   category: "Best Practice",
   detail: "d",
   bpOfWeekNominated: false,
-  bestPresenter: false,
 };
 
 async function sumStream(stream: string): Promise<number> {
@@ -39,9 +37,9 @@ describe("v1.2 retired-stream reversal (REQ-S5)", () => {
   });
 
   it("nets cee/cee_best/presentation to zero, keeps the 2 live streams, idempotent", async () => {
-    // Live data: +1 new (best_practice; first entry folds in) and a new best_presenter +1.
-    const ini = await createInitiative(base, actor);
-    await award({ reason: "best_presenter", initiativeId: ini.initiativeId, ...AREA, effectiveDate: "2026-07-01", actorId: actor });
+    // Live data: +1 new on the contribution stream (D23). Best Presenter was
+    // retired by D25, so there is no second live award to simulate here.
+    await createInitiative(base, actor);
 
     // Simulate pre-migration retired-stream rows (reasons no longer awardable).
     await db.insert(scoreEvents).values([
@@ -56,8 +54,9 @@ describe("v1.2 retired-stream reversal (REQ-S5)", () => {
     // Retired streams net to zero; live streams intact.
     expect(await sumStream("cee")).toBe(0);
     expect(await sumStream("cee_best")).toBe(0);
-    expect(await sumStream("best_practice")).toBe(1); // +1 new (first entry folds in)
-    expect(await sumStream("presenter")).toBe(1); // best_presenter (+1) survives; presentation netted
+    // D23: the live point is a contribution point; no bp_of_week here.
+    expect(await sumStream("best_practice")).toBe(0);
+    expect(await sumStream("presenter")).toBe(1); // +1 new; presentation netted
 
     // Idempotent.
     expect((await reverseRetiredStreams(actor)).reversed).toBe(0);

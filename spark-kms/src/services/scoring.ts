@@ -7,13 +7,16 @@ import { weekDateRange } from "@/src/services/week";
  * THE ONLY module allowed to write score_events (CLAUDE.md). Every displayed
  * score is a SUM over the rows written here — totals are never stored.
  *
- * Implements the requirements §5 rulebook:
- *   best_practice: new_initiative +1, entry +1 (max 1/initiative/day on
- *                  effective_date), bp_of_week +2
- *   presenter:     best_presenter +1 (Best Presenter of the Week, max 1/area/week)
- *   cee:           cee_participation +1
- *   cee_best:      cee_best +2
- *   adjustment:    arbitrary points on a chosen stream (note required)
+ * Implements the requirements §5 rulebook. Two streams, reallocated by D23:
+ *   best_practice ("Best Practice"): bp_of_week +2 only (max 1/area/week).
+ *   presenter ("Contribution"): new_initiative +1 (the first entry folds in,
+ *                  D20), entry +1 (max 1/initiative/day on effective_date).
+ *                  Best Presenter of the Week was retired by D25 and all its
+ *                  events reversed (REQ-S11).
+ *   adjustment:    arbitrary points on a chosen stream (note required; any
+ *                  admin since D24, not super-admin only)
+ * The `cee` / `cee_best` streams were retired in v1.2 (D10/D11); their events
+ * were reversed through the ledger, and the enum values remain for audit only.
  * Deletes/un-scoring write compensating `reversal` events; history is never
  * rewritten (REQ-S2).
  */
@@ -33,7 +36,6 @@ export type AwardInput =
   | ({ reason: "new_initiative"; initiativeId: number; refId?: number } & AreaFields)
   | ({ reason: "entry"; initiativeId: number; refId?: number } & AreaFields)
   | ({ reason: "bp_of_week"; initiativeId: number; refId?: number } & AreaFields)
-  | ({ reason: "best_presenter"; initiativeId: number; refId?: number } & AreaFields)
   | ({
       reason: "adjustment";
       stream: Stream;
@@ -47,16 +49,17 @@ export type AwardResult =
   | { status: "awarded"; eventId: number; points: number; stream: Stream }
   | { status: "skipped"; reason: "daily-cap" | "area-week-cap" };
 
-// v1.2 (D11/D12) reason → (stream, base points). Two streams only:
-// best_practice (new_initiative, entry, bp_of_week) and presenter, which now
-// carries the "Best Presenter of the Week" award. CEE / standalone presenter
-// removed.
+// Reason → (stream, base points). Two streams (D11/D12), reallocated by D23:
+//   best_practice  = the Best-Practice-of-the-Week award, and NOTHING else.
+//   presenter      = everything else earned by contributing. Displayed as
+//                    "Contribution"; the enum value stays `presenter` because
+//                    the DB enum and the API field name are in production use.
 const RULES: Record<string, { stream: Stream; points: number }> = {
-  new_initiative: { stream: "best_practice", points: 1 },
-  entry: { stream: "best_practice", points: 1 },
+  new_initiative: { stream: "presenter", points: 1 },
+  entry: { stream: "presenter", points: 1 },
   bp_of_week: { stream: "best_practice", points: 2 },
-  // Best Presenter of the Week: +1 to the Presenter stream (1/Area/week).
-  best_presenter: { stream: "presenter", points: 1 },
+  // `best_presenter` retired by D25. The enum value stays for the historical
+  // rows (all reversed by REQ-S11); nothing awards it any more.
 };
 
 /** SQL predicate: this event id has NOT been reversed. */
@@ -79,10 +82,9 @@ async function awardImpl(event: AwardInput, tx: Tx): Promise<AwardResult> {
     }
   }
 
-  // v1.2 (D14): the two weekly awards are capped 1 per Area per week, each
-  // reason independently. The first ticked entry in an Area that week scores;
-  // later ones are skipped.
-  if (event.reason === "bp_of_week" || event.reason === "best_presenter") {
+  // v1.2 (D14): the weekly award is capped 1 per Area per week. The first
+  // ticked entry in an Area that week scores; later ones are skipped.
+  if (event.reason === "bp_of_week") {
     const { start, end } = weekDateRange(event.effectiveDate);
     const existing = await tx.execute(sql`
       SELECT se.id FROM ${scoreEvents} se
@@ -215,6 +217,8 @@ export async function reverseEntryScores(
     const active = await t.execute(sql`
       SELECT se.id FROM ${scoreEvents} se
       WHERE se.ref_id = ${entryRefId}
+        -- best_presenter stays in this list so deleting an OLD entry still
+        -- reverses its historical point (the award itself is retired, D25).
         AND se.reason IN ('entry', 'bp_of_week', 'best_presenter')
         AND ${notReversed()}
     `);

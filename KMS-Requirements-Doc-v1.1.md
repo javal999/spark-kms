@@ -7,6 +7,7 @@
 | Status | **v1.2 approved for development.** v1.1 shipped — all 5 phases live in production at kms.paracorplabs.com. v1.2 = the change batch in the changelog below (decisions D9–D19). |
 | Purpose | Source document for technical architecture and Claude Code task breakdown |
 | Changes from v1.1 (v1.2) | **Scoring overhaul:** streams cut 4 → 2 (**Best Practice, Best Presenter**). The standalone per-initiative Presenter point and the **CEE / CEE-Best streams are removed**; **CEE becomes a 6th Pillar**. **Best Practice of the Week** and **Best Presenter of the Week** are now **auto-awarded +2 at submit with no super-admin confirmation** (this reverses REQ-A3 for these two awards), each capped **1/Area/week**. New: a **PIC people directory** (admin-uploadable, names only) driving a searchable PIC picker; typing a new name appends to the directory. Bulk upload now **persists PIC** and adds an **admin dedup-review with an acknowledgment gate**. UI: **side collapsible nav**, simplified list filters, **% action-items-done** column + filter, and assorted dashboard / detail / leaderboard changes (section 6). Existing CEE / CEE-Best / Presenter score events are reversed on migration. Full decision list: D9–D19 (section 12). |
+| Changes after v1.2 (shipped, not a new version) | Five scoring/enum/permission changes are recorded here as **D20–D24** (section 12): the first entry now **folds into** the +1 for a new initiative (D20); **Best Presenter is +1**, not +2 (D21); **Sulawesi is a real Region** (D22); the **Best Practice stream carries only the weekly award**, everything else moves to the **Contribution** stream (D23, applied retroactively per REQ-S8); **any admin may post a manual adjustment** (D24); and **Best Presenter of the Week is removed** with all its points reversed (D25, REQ-S11). Sections 4.1, 5.1, 5.2, 7.2 and decisions D5/D7 below are updated to match the shipped code. Later feature work (knowledge graph, usage tracking, AI-suggested links, M365 SSO, soft-archive) has its own specs under `spark-kms/docs/`; this document is not their source of truth. |
 | Changes from v1.0 | Validated against the real SPARK WEEKLY UPDATE file (45 entries, 2 sheets). Score streams expanded from 2 to 4 (adds CEE, CEE Best per Levi). Leaderboard stays Region × Segment (per Levi; no person entity). Enums fixed to Levi's provided lists. Category resolved (Best Practice / Unlocking). Link field added to V1. Excel template fully specified with download requirement. |
 
 ## 1. Summary
@@ -26,8 +27,8 @@ Two ground truths shaped this version: the LLM council review (appendix A) and t
 
 ### Non-goals (V1)
 
-1. No LLM features. Duplicate detection is fuzzy string matching only (section 8). V2 roadmap in section 11.
-2. No per-viewer accounts. Viewers share 1 password.
+1. ~~No LLM features. Duplicate detection is fuzzy string matching only (section 8).~~ **Superseded 2026-07-22/23:** embedding-based suggested connections shipped as Phase 9 under its own spec (`spark-kms/docs/prd-graph-tracking.md`, `graph-future-phases.md`). Duplicate detection itself is still trigram-only. V2 roadmap in section 11.
+2. ~~No per-viewer accounts. Viewers share 1 password.~~ **Superseded 2026-07-29:** M365 SSO with an email allow-list shipped alongside the shared viewer password, under its own TRD (commit `bd049be`). The shared password still works.
 3. No user-editable master lists (regions, segments, pillars, territories change via code release or super-admin config, see D7).
 4. No file uploads. Links (URLs) are supported; binary attachments are V1.1.
 5. No mobile app. Responsive web only.
@@ -56,11 +57,11 @@ The contract for the whole system. Implement before any page. Field names in the
 
 Enums are Levi's provided lists (decision: proposal wins over file where they differ).
 
-- **Region (5):** Jakarta Greater, Kalimantan, Sumatera, CJWJ, EJBN
+- **Region (6, v1.2.1):** Jakarta Greater, Kalimantan, Sumatera, CJWJ, EJBN, **Sulawesi** (added 2026-08-12, D22 — previously a historical-only value that failed import)
 - **Segment (4):** Halal PC, Teen & ES, Masstige, All
 - **Pillar (6, v1.2):** Social Buzz, Personalized CRM, Relevant Beauty Lifestyle, Activated New Touchpoint, Key Territory Execution, **CEE** (added in v1.2 — CEE is now a pillar, not a score stream; D10). Adding an enum value is an additive Postgres migration.
 
-Import note: the historical file contains values outside these lists (Region "Sulawesi": 2 entries; Pillar "Core Excellence Execution": 3 entries; spellings "Teens & ES", "ALL"). The import normalizer maps spellings automatically (REQ-U8); off-enum values fail their row at dry-run preview with a clear error, and the uploader corrects them in the file. No system-side mapping (D5 resolved). *(v1.2 note: "Core Excellence Execution" can now be corrected to the CEE pillar rather than to Key Territory Execution.)*
+Import note: the historical file contains spellings outside these lists ("Teens & ES", "ALL"). The import normalizer maps spellings automatically (REQ-U8); values with no mapping fail their row at dry-run preview with a clear error, and the uploader corrects them in the file. No system-side mapping (D5 resolved). *(v1.2: "Core Excellence Execution" can be corrected to the CEE pillar rather than to Key Territory Execution. v1.2.1: "Sulawesi" is now a valid Region and imports directly — D22.)*
 - **Entry category (2):** Best Practice, Unlocking
 - **Stage (4):** Idea, Pilot, Running, Ready to Scale
 - **Action status (4):** Not Started, On Progress, Done, Withdrawn/Cancelled
@@ -121,23 +122,29 @@ Import note: the historical file contains values outside these lists (Region "Su
 - **Area:** the (region, segment) pair; not a table. Up to 20 combos; only areas with ≥ 1 initiative appear on the leaderboard.
 - **Score attribution:** every score event carries the Area (region, segment) of its initiative at event time; manual weekly streams are logged directly against an Area. Validation note: the scoring math was verified against the real file (BP-of-week flags × 2 pts reproduce every leaderboard row exactly when rolled up by territory).
 
-## 5. Scoring rulebook (v1.2)
+## 5. Scoring rulebook (v1.2, streams reallocated by D23)
 
-Two streams. Every point comes from one of four events; there are no manual weekly point streams anymore (CEE removed, standalone Presenter removed). The ledger rules (5.3) are unchanged; a one-time migration (5.4) reverses the retired-stream events on live data.
+Two streams, split by what the point means:
 
-### 5.1 best_practice stream
+- **Best Practice** (`best_practice`) — **only** the Best-Practice-of-the-Week award. Nothing else ever lands here except a manual adjustment an admin deliberately posts to it.
+- **Contribution** (`presenter`) — every other earned point: new initiative and entry. (Best Presenter of the Week also lived here until D25 retired it.) The enum value stays `presenter` because it is in production use, and the leaderboard API field stays `best_presenter` so partner integrations keep working. The UI label is "Contribution".
 
-| Event | Points | Rule |
-|---|---|---|
-| New initiative created | +1 | After the human-in-the-loop duplicate check (section 8). |
-| Entry added (Best Practice or Unlocking) | +1 | Max 1 point per initiative per calendar date, on entry_date (Asia/Jakarta). Backdated input allowed (cap applies to the backdated date; soft warning beyond 30 days). Unlocking scores equally — surfacing blockers is contribution. |
-| Best Practice of the Week | +2 | Checkbox at submit (`bp_of_week`). **Auto-awarded immediately, no confirmation** (D14). Capped **1 per Area per week** — the first ticked entry in an Area that week scores; later ones in the same Area/week are skipped (`area-week-cap`). |
+Every point comes from one of four events; there are no manual weekly point streams anymore (CEE removed, standalone Presenter removed). The ledger rules (5.3) are unchanged; two one-time migrations (5.4) fix live data.
 
-### 5.2 best_presenter stream (v1.2, new)
+### 5.1 Best Practice stream
 
 | Event | Points | Rule |
 |---|---|---|
-| Best Presenter of the Week | +2 | Checkbox at submit (`best_presenter`). **Auto-awarded immediately, no confirmation** (D12, D14). Capped **1 per Area per week**. Rendered as the leaderboard's "Best Presenter" column. |
+| Best Practice of the Week | +2 | Checkbox at submit (`bp_of_week`), and a column in the bulk-upload template. **Auto-awarded immediately, no confirmation** (D14). Capped **1 per Area per week** — the first ticked entry in an Area that week scores; later ones in the same Area/week are skipped (`area-week-cap`). This is the only event that writes to this stream (D23). |
+
+### 5.2 Contribution stream (enum `presenter`, reallocated by D23)
+
+| Event | Points | Rule |
+|---|---|---|
+| New initiative created | +1 | After the human-in-the-loop duplicate check (section 8). **The first entry folds into this point** (D20, 2026-07-28): creating an initiative earns +1 in total, not +1 new plus +1 entry. |
+| Entry added (Best Practice or Unlocking) | +1 | Every entry *after* the first (D20). Max 1 point per initiative per calendar date, on entry_date (Asia/Jakarta). Backdated input allowed (cap applies to the backdated date; soft warning beyond 30 days). Unlocking scores equally — surfacing blockers is contribution. |
+
+**Removed: Best Presenter of the Week (D25, 2026-08-13).** The award, its submit checkbox, and its bulk-upload column are gone, and every point it ever granted is reversed (REQ-S11). It was +2 in v1.2 (D12/D14), shipped as +1 (D21), and is now nothing. The `best_presenter` score_reason value and the `entries.best_presenter` column stay in the schema so the reversed rows remain auditable.
 
 Removed in v1.2: the standalone per-initiative **Presenter +2** (D12 — every initiative is presented, but the point that rewards presentation is now the weekly "Best Presenter" award, not a per-initiative auto-point) and the **CEE / CEE-Best** streams (D10/D11 — CEE is now a Pillar).
 
@@ -145,7 +152,7 @@ Removed in v1.2: the standalone per-initiative **Presenter +2** (D12 — every i
 
 - REQ-S1. No stored totals. Every displayed number is SUM over score_events.
 - REQ-S2. Deletions/un-scoring write compensating negative events (reason `reversal`). History is never rewritten.
-- REQ-S3. Super-admin manual `adjustment` events with a mandatory note = the dispute mechanism. This is the **only** remaining super-admin-gated score action.
+- REQ-S3. **(v1.2.1, D24.)** Manual `adjustment` events with a mandatory note = the dispute mechanism, and **any admin** may post one — not super-admins only. The note plus `created_by` is the audit trail. Because `/admin/*` stays super-only, adjustments live on their own page, `/adjustments`, gated admin-or-super in `proxy.ts` and again by `requireAdmin()` in the route handler. *(v1.1/v1.2 restricted this to super-admins and called it the only super-admin-gated score action; superseded. No score action is super-admin-only now.)*
 - REQ-S4. If an initiative's region/segment is edited, future events carry the new Area; past events keep the Area recorded at event time.
 
 ### 5.4 v1.2 migration (one-time, on live data)
@@ -153,6 +160,17 @@ Removed in v1.2: the standalone per-initiative **Presenter +2** (D12 — every i
 - REQ-S5. Stream removal goes through the ledger, never a raw DELETE (REQ-S2). For every existing `cee`, `cee_best`, and `presenter` score event, write a compensating `reversal` event (net zero). Rows remain for audit; the leaderboard stops counting them. Past area totals drop accordingly — accepted (D16).
 - REQ-S6. **No retroactive award.** Existing initiatives do NOT get back-dated Best-Practice-of-Week or Best-Presenter points; only entries submitted from v1.2 onward earn them. Existing `bp_of_week`-nominated-but-unconfirmed entries are NOT auto-awarded (D13).
 - REQ-S7. Take a full DB snapshot before the migration (D16). The phase-2 golden test must be re-baselined to the 2-stream model (or quarantined) before this ships.
+
+### 5.5 v1.2.1 stream reallocation (one-time, on live data)
+
+- REQ-S8. **(D23.)** Historical `new_initiative` and `entry` events were written to `best_practice`. Move them to the Contribution stream so the two leaderboard columns mean the same thing across all time. Each event is **reversed and re-issued** through `scoring.ts` (`src/db/reallocate-streams.ts`), never edited or deleted (REQ-S2). The re-issued event keeps the original author, area, initiative and effective date. Manual `adjustment` events are left alone — an admin chose that stream on purpose.
+- REQ-S9. The reallocation is idempotent (a second run moves 0) and runs only after a full DB snapshot, recorded in `spark-kms/MIGRATIONS.md`. **Area totals do not change** — `total` is the sum of both streams — but the split between the two columns does, and past Best Practice column numbers will drop to weekly-award points only. Accepted, and worth telling the regions before it lands.
+- REQ-S10. Any event the migration cannot re-issue (a legacy row that breaks the daily cap, or one with no initiative) is counted as **skipped** and reported, never silently dropped.
+
+### 5.6 v1.2.2 Best Presenter removal (one-time, on live data)
+
+- REQ-S11. **(D25.)** Every active `best_presenter` score event is reversed through the ledger (`src/db/reverse-best-presenter.ts`), so **no initiative keeps a point from the retired award**. Original rows stay for audit; the leaderboard stops counting them. Idempotent — a second run reverses 0. Area totals drop by exactly the number of Best Presenter awards ever granted.
+- REQ-S12. The award path is removed from `scoring.ts` (`RULES`), the submit payload, and the bulk-upload template. The entry validation schema is not strict, so a stale API client still sending `bestPresenter` has the key **stripped and ignored**, not rejected.
 
 ## 6. Page requirements
 
@@ -226,8 +244,8 @@ Acceptance: new initiative writes exactly 1 new_initiative + up to 1 entry event
 - REQ-U4. Row limit 500; larger files rejected with a message.
 - REQ-U5. Committed rows carry `upload_batch_id`; a bad import is reversible via compensating events.
 - REQ-U6. Form and Excel share 1 validation pipeline (Executor: or you'll write validation twice).
-- REQ-U7. **(v1.2)** The "Best Practice of the Week" column now imports as an **auto-award +2** (capped 1/Area/week), matching the form (D14). A new **"Best Presenter of the Week"** column does the same for the best_presenter stream. Because a sheet could tick these on every row, the per-Area/week cap is the guardrail and the REQ-U9 acknowledgment makes the admin own the import. *(v1.1 imported this column as a nomination only; superseded.)*
-- REQ-U8. Enum normalization on import: "ALL"→All, "Teens & ES"→Teen & ES, case-insensitive region/pillar matching, trimmed whitespace. Values with no mapping (e.g. Sulawesi) fail the row with a clear error at dry-run. *(v1.2: "Core Excellence Execution" now maps to the CEE pillar.)*
+- REQ-U7. **(v1.2; revised by D25.)** The "Best Practice of the Week" column imports as an **auto-award +2** (capped 1/Area/week), matching the form (D14). *(v1.2 added a "Best Presenter of the Week" column; removed by D25. Template version is now **v1.3**. Files still carrying the old column upload correctly — the parser maps columns by **header name**, not position, so a removed column no longer shifts the ones after it.)* Because a sheet could tick these on every row, the per-Area/week cap is the guardrail and the REQ-U9 acknowledgment makes the admin own the import. *(v1.1 imported this column as a nomination only; superseded.)*
+- REQ-U8. Enum normalization on import: "ALL"→All, "Teens & ES"→Teen & ES, case-insensitive region/pillar matching, trimmed whitespace. Values with no mapping fail the row with a clear error at dry-run. *(v1.2: "Core Excellence Execution" now maps to the CEE pillar. v1.2.1: Sulawesi is a valid Region and no longer fails — D22.)*
 - REQ-U9. **(v1.2, item 8)** Bulk dedup review: the preview already flags per-row duplicate candidates. Add **batch actions** — "treat all flagged as new", "append all to the top match", "reject all" (uses the `rejected` batch status), or resolve individually — and a **mandatory acknowledgment** checkbox ("I reviewed the N similar initiatives") the admin must tick before commit.
 - REQ-U10. **(v1.2, item 7)** Bulk upload **persists PIC**: the row PIC saves on the initiative and is appended to the `person` directory (D9/D15); action items created from a row's follow_up inherit the row PIC instead of "Unassigned".
 
@@ -290,9 +308,9 @@ Acceptance: new initiative writes exactly 1 new_initiative + up to 1 entry event
 | D2 | Entry point caps | **resolved** | 1 point per initiative per day, evaluated on entry_date. Backdated input allowed (cap applies to the backdated date; soft warning beyond 30 days). No weekly cap |
 | D3 | Category taxonomy | **resolved** | Best Practice, Unlocking (from real file) |
 | D4 | Segment "All" scoring | **resolved** | An "All" initiative counts only toward its (region, All) area; no double counting |
-| D5 | Historical backfill | **resolved** | No system-side backfill. The app launches with an empty ledger; users upload historical data themselves later via the bulk Excel pipeline. Rows with off-enum values (Sulawesi, Core Excellence Execution) fail at dry-run preview with clear errors, and users correct them in the file before committing |
+| D5 | Historical backfill | **resolved** | No system-side backfill. The app launches with an empty ledger; users upload historical data themselves later via the bulk Excel pipeline. Rows with off-enum values fail at dry-run preview with clear errors, and users correct them in the file before committing. *(Both original examples have since become valid values: Core Excellence Execution → CEE pillar in v1.2, Sulawesi → Region in v1.2.1.)* |
 | D6 | Attachments | **resolved** | `link_url` field in V1 (file has a Link File column); binary uploads V1.1 |
-| D7 | Enum lists | **resolved** | Levi's provided lists are final: 5 regions, 4 segments (Teen & ES), 5 pillars incl. Social Buzz. Sulawesi and Core Excellence Execution are historical-only values handled at import (D5) |
+| D7 | Enum lists | **resolved, then extended** | Levi's provided lists were final at v1.1: 5 regions, 4 segments (Teen & ES), 5 pillars incl. Social Buzz. Since extended twice by additive migration: CEE pillar (D10, v1.2) and Sulawesi region (D22, v1.2.1). Adding a value requires a Drizzle migration plus validation, upload template, submit form and bulk-upload allowed values |
 | D8 | Do the new +1 initiative / +1 entry rules apply, on top of today's BP-of-week/CEE scoring? | **resolved** | Yes: +1 new initiative and +1 entry/day apply in the best_practice stream. *(v1.2: still true, but "alongside CEE/Presenter" no longer holds — those streams are removed.)* |
 
 ### v1.2 decisions (2026-07-10; supersede parts of D1/D7/D8/REQ-A3)
@@ -310,6 +328,19 @@ Acceptance: new initiative writes exactly 1 new_initiative + up to 1 entry event
 | D17 | Navigation | **resolved** | Collapsible left **sidebar** (icon-rail + drawer on mobile), state persisted. |
 | D18 | Leaderboard Pillar/PIC | **resolved** | Shown in the **area drill-down** (per initiative), not as columns on the area-aggregate row. |
 | D19 | "% action items done" edge cases | **resolved** | 0-action-item initiatives show "—" and are excluded from the % filter. Filter buckets: 0% / in-progress / 100%. |
+
+### Post-v1.2 decisions (recorded 2026-08-13)
+
+D20–D22 changed scoring or enum behavior after v1.2 was approved and shipped in code first; they are back-recorded here. D23–D24 were decided on 2026-08-13 and specified here **before** the code changed. Sections 4.1, 5.1, 5.2, 5.5 and 7.2 above match the shipped code.
+
+| # | Decision | Status | Resolution |
+|---|---|---|---|
+| D20 | Does creating an initiative earn +1 or +2? | **resolved** (Levi, 2026-07-28) | **+1 total.** `new_initiative` +1 fires; the first entry folds in and does not add its own +1. Later entries score +1/day as before. Existing double-counted first entries were reversed through the ledger (`run-reverse-first-entry`), never deleted. Commit `7289035`. |
+| D21 | Best Presenter point value | **resolved** (Levi, 2026-08-12) | **+1**, not the +2 specified in v1.2. Cap stays 1/Area/week. The bulk-upload template gained a Best Presenter column that awards on the same rule. Commit `f1621ed`. Rationale not recorded at the time; the spec is the record. |
+| D22 | Sulawesi | **resolved** (Levi, 2026-08-12) | **A real Region**, added by additive migration `0012`. Reverses the v1.1 position (D5/D7) that it was historical-only and must fail import. Commit `bb0da1f`. |
+| D23 | What belongs in the Best Practice stream | **resolved** (Levi, 2026-08-13) | **Only the Best-Practice-of-the-Week award.** Every other earned point — new initiative, entry, Best Presenter — moves to the second stream, relabeled **"Contribution"** in the UI. The DB enum value stays `presenter` and the API field stays `best_presenter`, so nothing in production or in a partner integration breaks. Applied retroactively to existing events through the ledger (REQ-S8). |
+| D25 | Best Presenter of the Week | **resolved** (Levi, 2026-08-13) | **Removed entirely.** No award, no checkbox, no upload column, and every point it granted is reversed through the ledger (REQ-S11) so no initiative keeps one. Supersedes D12, D21, and the Best Presenter half of D14. The `best_presenter` reason and the `entries.best_presenter` column stay in the schema — dropping them would be destructive and would break the audit trail of the rows being reversed. Upload template goes to v1.3, and the parser now maps columns by header name so old files still import correctly. |
+| D24 | Who may post a manual adjustment | **resolved** (Levi, 2026-08-13) | **Any admin**, not super-admins only. Supersedes REQ-S3. The mandatory note plus `created_by` remains the audit trail. Trade-off accepted: an admin can now hand out arbitrary points to their own area, bounded only by the note and the edit log. Adjustments moved to `/adjustments` because `/admin/*` stays super-only. |
 
 ## 13. Build phases for Claude Code
 

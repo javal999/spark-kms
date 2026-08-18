@@ -23,22 +23,21 @@ beforeAll(async () => {
 
   // A varied dataset across areas, streams, weeks, plus a reversal.
   const a = await createInitiative(
-    { title: "Alpha", region: "Sumatera", segment: "Masstige", pillar: "Social Buzz", stage: "Idea", pic: "P", entryDate: "2026-07-01", category: "Best Practice", detail: "d", bpOfWeekNominated: false, bestPresenter: false },
+    { title: "Alpha", region: "Sumatera", segment: "Masstige", pillar: "Social Buzz", stage: "Idea", pic: "P", entryDate: "2026-07-01", category: "Best Practice", detail: "d", bpOfWeekNominated: false },
     actor,
   );
   const b = await createInitiative(
-    { title: "Bravo", region: "CJWJ", segment: "Halal PC", pillar: "Personalized CRM", stage: "Pilot", pic: "P", entryDate: "2026-07-02", category: "Unlocking", detail: "d", bpOfWeekNominated: false, bestPresenter: false },
+    { title: "Bravo", region: "CJWJ", segment: "Halal PC", pillar: "Personalized CRM", stage: "Pilot", pic: "P", entryDate: "2026-07-02", category: "Unlocking", detail: "d", bpOfWeekNominated: false },
     actor,
   );
-  // Weekly awards on Alpha's area (v1.2 two streams).
-  await award({ reason: "best_presenter", initiativeId: a.initiativeId, region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor, refId: a.entryId });
+  // The weekly award on Alpha's area (Best Presenter retired by D25).
   await award({ reason: "bp_of_week", initiativeId: a.initiativeId, region: "Sumatera", segment: "Masstige", effectiveDate: "2026-07-01", actorId: actor, refId: a.entryId });
   // A later progress entry on Bravo (create no longer emits an `entry` event —
   // the first entry folds into new_initiative), then reverse its point so the
   // dataset still exercises a reversal.
   await appendEntry(
     b.initiativeId,
-    { entryDate: "2026-07-09", category: "Unlocking", detail: "progress", bpOfWeekNominated: false, bestPresenter: false } as never,
+    { entryDate: "2026-07-09", category: "Unlocking", detail: "progress", bpOfWeekNominated: false } as never,
     actor,
   );
   const rows = await db.execute<{ id: number }>(sql`SELECT id FROM score_events WHERE initiative_id = ${b.initiativeId} AND reason='entry' LIMIT 1`);

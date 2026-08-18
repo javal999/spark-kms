@@ -67,7 +67,12 @@ export async function rotateViewerPassword(newPassword: string): Promise<number>
   return bumpViewerEpoch();
 }
 
-/** Post a manual adjustment (note required — the dispute mechanism, REQ-S3). */
+/**
+ * Post a manual adjustment (note required — the dispute mechanism, REQ-S3).
+ * Any admin may call this since D24; the caller's route enforces requireAdmin().
+ * The stream is chosen by the admin, so this is the one path that can put
+ * points on best_practice without a Best-Practice-of-the-Week win (D23).
+ */
 export async function postAdjustment(
   input: {
     region: string;

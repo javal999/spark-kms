@@ -10,6 +10,8 @@ import { sessionOptions, type SessionData } from "@/src/lib/session-config";
  *  - /login              public
  *  - /admin/*            super only
  *  - /submit/*           admin or super
+ *  - /adjustments        admin or super (D24: manual adjustments are no longer
+ *                        super-only, but the rest of /admin still is)
  *  - everything else     any authenticated session (viewer+)
  *
  * Fine-grained checks (per-record, per-action) still happen in the route
@@ -34,7 +36,7 @@ export async function proxy(req: NextRequest) {
     return redirect(req, "/", null);
   }
   if (
-    pathname.startsWith("/submit") &&
+    (pathname.startsWith("/submit") || pathname.startsWith("/adjustments")) &&
     !(role === "admin" || role === "super")
   ) {
     return redirect(req, "/", null);

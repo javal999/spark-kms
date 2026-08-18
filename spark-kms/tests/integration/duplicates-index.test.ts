@@ -30,7 +30,6 @@ describe("duplicate detection is index-backed (drift guard)", () => {
         category: "Best Practice",
         detail: "d",
         bpOfWeekNominated: false,
-        bestPresenter: false,
       } as NewInitiativeInput,
       actor,
     );

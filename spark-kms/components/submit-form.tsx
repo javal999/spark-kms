@@ -51,17 +51,10 @@ type EntryState = {
   followUp: string;
   linkUrl: string;
   bpOfWeekNominated: boolean;
-  bestPresenter: boolean;
   createActionItem: boolean;
   aiPic: string;
   aiDueDate: string;
 };
-
-function todayJakarta(): string {
-  // Jakarta is UTC+7; shift then take the date part.
-  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  return now.toISOString().slice(0, 10);
-}
 
 // Soft warning (requirements §5.1): entry_date more than 30 days old. Mirrors
 // isStaleEntryDate in validation/entry.ts (kept local so the client bundle
@@ -73,20 +66,24 @@ function isStale(entryDate: string): boolean {
   return ageDays > 30;
 }
 
-const emptyEntry: EntryState = {
-  entryDate: todayJakarta(),
+/** Everything but the date, which the server supplies (Jakarta is server-side). */
+const emptyEntry: Omit<EntryState, "entryDate"> = {
   category: "Best Practice",
   detail: "",
   followUp: "",
   linkUrl: "",
   bpOfWeekNominated: false,
-  bestPresenter: false,
   createActionItem: false,
   aiPic: "",
   aiDueDate: "",
 };
 
-export function SubmitForm() {
+/**
+ * @param today - the current Jakarta date ("YYYY-MM-DD"), computed on the server
+ *   by `week.ts`. Date and week logic is server-side only (CLAUDE.md), and this
+ *   value becomes `effective_date`, which drives the scoring caps.
+ */
+export function SubmitForm({ today }: { today: string }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("basics");
   const [pending, setPending] = useState(false);
@@ -107,7 +104,7 @@ export function SubmitForm() {
   const [description, setDescription] = useState("");
 
   // Entry
-  const [entry, setEntry] = useState<EntryState>(emptyEntry);
+  const [entry, setEntry] = useState<EntryState>({ ...emptyEntry, entryDate: today });
   const setE = (patch: Partial<EntryState>) =>
     setEntry((prev) => ({ ...prev, ...patch }));
 
@@ -142,7 +139,6 @@ export function SubmitForm() {
       followUp: entry.followUp || undefined,
       linkUrl: entry.linkUrl || undefined,
       bpOfWeekNominated: entry.bpOfWeekNominated,
-      bestPresenter: entry.bestPresenter,
       createActionItem: entry.createActionItem && !!entry.followUp.trim(),
       actionItem:
         entry.createActionItem && entry.followUp.trim()

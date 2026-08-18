@@ -12,9 +12,10 @@ import {
  * parser (REQ-U6). Enum options are pulled straight from the Drizzle pgEnums so
  * they can never drift from the database.
  *
- * Off-enum historical values (Sulawesi, Core Excellence Execution) intentionally
- * FAIL here — the import normalizer fixes spellings/case upstream, but truly
- * unmapped values must error per row at dry-run (REQ-U8, D5).
+ * Values with no enum mapping intentionally FAIL here — the import normalizer
+ * fixes spellings/case upstream, but truly unmapped values must error per row at
+ * dry-run (REQ-U8, D5). Note that the two historical examples the requirements
+ * used are now valid: CEE became a pillar (D10) and Sulawesi a region (D22).
  */
 
 export const regionSchema = z.enum(regionEnum.enumValues);
@@ -49,8 +50,13 @@ export const isoDateSchema = z
   }, "Not a valid calendar date");
 
 /**
- * Entry (a.k.a. progress update). `bpOfWeekNominated` is a nomination only —
- * scoring the +2 requires super-admin confirmation elsewhere (REQ-A3, REQ-U7).
+ * Entry (a.k.a. progress update). Since v1.2 (D14) `bpOfWeekNominated` is no
+ * longer a nomination: ticking it auto-awards +2 at submit with no super-admin
+ * confirmation, capped 1/Area/week.
+ *
+ * `bestPresenter` was removed by D25. The schema is not strict, so a stale
+ * caller still sending the key has it stripped rather than rejected — it simply
+ * scores nothing.
  */
 export const entryInputSchema = z.object({
   entryDate: isoDateSchema,
@@ -58,8 +64,6 @@ export const entryInputSchema = z.object({
   detail: requiredText,
   followUp: optionalText,
   bpOfWeekNominated: z.boolean().default(false),
-  // v1.2 (D12): "Best Presenter of the Week" — auto-awards +2 when true.
-  bestPresenter: z.boolean().default(false),
   linkUrl: optionalText,
 });
 

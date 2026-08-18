@@ -24,9 +24,11 @@ tested, and live in production. These are "add when a real need shows up."
 
 ## Test quality
 
-- [ ] **Mutation testing.** 143 tests pass, but the mutation gate
+- [ ] **Mutation testing.** 287 tests pass, but the mutation gate
   (`stryker`) isn't set up. Add it to formally confirm the tests would catch
-  regressions on critical paths (scoring, auth, API writes).
+  regressions on critical paths (scoring, auth, API writes). *Passing tests
+  prove the assertions hold, not that they would catch a regression — this is
+  the largest remaining unknown about test quality.*
 
 ## Product / V2 roadmap (from earlier notes)
 

@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Trophy,
   PlusCircle,
+  Scale,
   Settings,
   Share2,
   BarChart3,
@@ -37,6 +38,7 @@ const links: NavLink[] = [
   { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
   { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
   { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
+  { href: "/adjustments", label: "Adjustments", minRole: "admin", icon: Scale },
   // Insights + Graph are the analytics group. Graph is super-only and renders
   // nested under Insights.
   { href: "/insights", label: "Insights", minRole: "admin", icon: BarChart3, flag: "tracking" },

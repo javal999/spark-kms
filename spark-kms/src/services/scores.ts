@@ -19,7 +19,9 @@ export type LeaderboardRow = {
   region: string;
   segment: string;
   best_practice: number;
-  best_presenter: number; // v1.2: the `presenter` stream relabeled
+  /** The `presenter` stream, displayed as "Contribution" since D23. The field
+   *  name is kept for partner integrations reading /api/v1/leaderboard. */
+  best_presenter: number;
   total: number;
 };
 
@@ -135,7 +137,9 @@ export async function topInitiatives(
 
 export type StreamTotals = {
   best_practice: number;
-  best_presenter: number; // v1.2: the `presenter` stream relabeled
+  /** The `presenter` stream, displayed as "Contribution" since D23. The field
+   *  name is kept for partner integrations reading /api/v1/leaderboard. */
+  best_presenter: number;
   total: number;
 };
 

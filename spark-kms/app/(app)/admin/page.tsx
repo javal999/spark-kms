@@ -11,15 +11,15 @@ import {
   PeoplePanel,
   AiLinksPanel,
   ViewerPasswordPanel,
-  ScoringPanel,
   ApiKeysPanel,
   AccessPanel,
 } from "@/components/admin-console";
 import { AdminSectionNav, type AdminSection } from "@/components/admin-section-nav";
 import { flags } from "@/src/lib/flags";
 
+// D24: Adjustments moved to its own admin-reachable page (/adjustments), since
+// /admin/* stays super-only. It is no longer a section here.
 const SECTIONS: AdminSection[] = [
-  { id: "scoring", label: "Adjustments" },
   { id: "admins", label: "Admins" },
   ...(flags.sso ? [{ id: "access", label: "Access (SSO)" }] : []),
   { id: "people", label: "PIC directory" },
@@ -66,9 +66,16 @@ export default async function AdminPage() {
 
       <AdminSectionNav sections={SECTIONS} />
 
-      <section id="scoring" className="scroll-mt-28">
-        <ScoringPanel />
-      </section>
+      <Link
+        href="/adjustments"
+        className="rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
+      >
+        <div className="text-sm font-medium">Adjustments →</div>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Manual score corrections. Open to any admin since D24, so it lives
+          outside this super-only page.
+        </p>
+      </Link>
       <section id="admins" className="scroll-mt-28">
         <UsersPanel admins={admins} />
       </section>

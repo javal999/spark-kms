@@ -89,7 +89,8 @@ export const mcpTools: McpTool[] = [
     name: "get_leaderboard",
     description:
       "The Region×Segment area leaderboard with per-stream points " +
-      "(presenter, best_practice, cee, cee_best) and total, ranked. Omit " +
+      "(best_practice = the weekly Best Practice award; presenter = the " +
+      "Contribution stream, everything else) and total, ranked. Omit " +
       "`week` for all-time.",
     inputSchema: { week: zWeekKey },
     run: (ctx, args) => opLeaderboard(ctx, args.week as string | undefined),

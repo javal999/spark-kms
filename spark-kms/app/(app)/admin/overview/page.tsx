@@ -37,6 +37,14 @@ export default async function SystemOverviewPage() {
           A curated summary; the full code-level knowledge graph is generated
           separately (understand-anything, run at handover).
         </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          For the rules themselves in plain language — scoring, submit fields,
+          upload, dashboard maths — see{" "}
+          <Link href="/guide" className="underline hover:text-foreground">
+            How SPARK works
+          </Link>
+          , which admins can read too.
+        </p>
       </div>
 
       <Section title="What it is">

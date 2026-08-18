@@ -62,6 +62,23 @@ const RULES: Record<string, { stream: Stream; points: number }> = {
   // rows (all reversed by REQ-S11); nothing awards it any more.
 };
 
+/**
+ * Read-only view of the table above, so the /guide page renders the live point
+ * values instead of a retyped copy. Reading only — every write still goes
+ * through award(), which stays the sole writer of score_events (CLAUDE.md).
+ * tests/unit/guide.test.ts pins this shape, so changing a value here fails the
+ * suite until the guide page and the requirements doc are updated with it.
+ */
+export const SCORING_RULES: Readonly<
+  Record<string, Readonly<{ stream: Stream; points: number }>>
+> = RULES;
+
+/** Display labels for the two live streams (D23: `presenter` reads as "Contribution"). */
+export const STREAM_LABELS: Readonly<Record<string, string>> = {
+  best_practice: "Best Practice",
+  presenter: "Contribution",
+};
+
 /** SQL predicate: this event id has NOT been reversed. */
 const notReversed = (idCol = sql`se.id`) =>
   sql`NOT EXISTS (SELECT 1 FROM ${scoreEvents} r WHERE r.reason = 'reversal' AND r.ref_id = ${idCol})`;

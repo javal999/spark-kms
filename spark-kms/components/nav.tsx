@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Trophy,
+  BookOpen,
   PlusCircle,
   Scale,
   Settings,
@@ -37,6 +38,9 @@ const links: NavLink[] = [
   { href: "/", label: "Dashboard", minRole: "viewer", icon: LayoutDashboard },
   { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
   { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
+  // The rulebook, read before acting: how points work, what each field
+  // means, how the dashboard is counted. Admin+ (viewers do not submit).
+  { href: "/guide", label: "How SPARK works", minRole: "admin", icon: BookOpen },
   { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
   { href: "/adjustments", label: "Adjustments", minRole: "admin", icon: Scale },
   // Insights + Graph are the analytics group. Graph is super-only and renders

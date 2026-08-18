@@ -229,6 +229,12 @@ Acceptance: new initiative writes exactly 1 new_initiative + up to 1 entry event
 - **(v1.2, item 2)** **PIC directory:** upload a names-only list (template provided); view / deactivate entries. New names typed on Submit or arriving via bulk upload are appended automatically.
 - Download upload template (also available on Page 2).
 
+### Page 7: How SPARK works (admin + super-admin)
+- **(D26)** `/guide` — the in-app rulebook, in plain language, for the people who write into SPARK. Gated admin-or-super in `proxy.ts` and re-checked on the page; viewers are redirected and do not see the nav entry.
+- Eleven sections: what SPARK is; role capabilities; how points work; correcting a score; every Submit field; bulk upload; duplicate detection; leaderboard maths; dashboard maths; the remaining pages; and how a rule gets changed.
+- **Values are rendered from the code, never retyped** — point values and stream labels from `scoring.ts`, dropdown lists from `src/lib/enums.ts`, columns and version from `template.ts`, limits from `upload.ts`, the similarity threshold from `duplicates.ts`. `tests/unit/guide.test.ts` pins all of them, so a change to any one fails the suite until this document and the page are updated with it.
+- Distinct from `/admin/overview` (super-only, technical: stack, deploy, observability). The two cross-link.
+
 ## 7. Bulk Excel upload
 
 ### 7.1 Template download (explicit requirement)
@@ -340,6 +346,7 @@ D20–D22 changed scoring or enum behavior after v1.2 was approved and shipped i
 | D22 | Sulawesi | **resolved** (Levi, 2026-08-12) | **A real Region**, added by additive migration `0012`. Reverses the v1.1 position (D5/D7) that it was historical-only and must fail import. Commit `bb0da1f`. |
 | D23 | What belongs in the Best Practice stream | **resolved** (Levi, 2026-08-13) | **Only the Best-Practice-of-the-Week award.** Every other earned point — new initiative, entry, Best Presenter — moves to the second stream, relabeled **"Contribution"** in the UI. The DB enum value stays `presenter` and the API field stays `best_presenter`, so nothing in production or in a partner integration breaks. Applied retroactively to existing events through the ledger (REQ-S8). |
 | D25 | Best Presenter of the Week | **resolved** (Levi, 2026-08-13) | **Removed entirely.** No award, no checkbox, no upload column, and every point it granted is reversed through the ledger (REQ-S11) so no initiative keeps one. Supersedes D12, D21, and the Best Presenter half of D14. The `best_presenter` reason and the `entries.best_presenter` column stay in the schema — dropping them would be destructive and would break the audit trail of the rows being reversed. Upload template goes to v1.3, and the parser now maps columns by header name so old files still import correctly. |
+| D26 | An in-app source of truth for the rules | **resolved** (Levi, 2026-08-18) | **A new page, `/guide` ("How SPARK works"), visible to admin and super-admin.** The rulebook lived only in this document, which regional admins do not read, so the rules that govern their points were effectively unpublished. Written in plain language: no schema, no file names. It renders its point values, enum lists, template columns and limits **from the code** rather than restating them, and `tests/unit/guide.test.ts` pins those values so the page cannot silently fall behind — the same drift that made this document wrong about point values in July–August 2026. `/admin/overview` stays as the super-only technical companion; the two cross-link. No scoring, enum or upload behavior changed: `scoring.ts` only gained a read-only export of its existing rules table. See Page 7 in section 6. |
 | D24 | Who may post a manual adjustment | **resolved** (Levi, 2026-08-13) | **Any admin**, not super-admins only. Supersedes REQ-S3. The mandatory note plus `created_by` remains the audit trail. Trade-off accepted: an admin can now hand out arbitrary points to their own area, bounded only by the note and the edit log. Adjustments moved to `/adjustments` because `/admin/*` stays super-only. |
 
 ## 13. Build phases for Claude Code

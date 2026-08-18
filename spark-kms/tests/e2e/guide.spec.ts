@@ -9,8 +9,18 @@ import { test, expect, type Page } from "@playwright/test";
 const SUPER = { email: "super@spark.local", password: "super-password-123" };
 const VIEWER_PW = "viewer-password-123";
 
+/**
+ * With M365 SSO enabled the password form starts hidden behind a link, so
+ * reveal it first. No-op when the flag is off and the form is already there.
+ */
+async function revealPasswordForm(page: Page) {
+  const reveal = page.getByRole("button", { name: "Use a password instead" });
+  if (await reveal.isVisible().catch(() => false)) await reveal.click();
+}
+
 async function loginAdmin(page: Page) {
   await page.goto("/login");
+  await revealPasswordForm(page);
   await page.getByTestId("toggle-mode").click();
   await page.locator("#email").fill(SUPER.email);
   await page.locator("#password").fill(SUPER.password);
@@ -20,6 +30,7 @@ async function loginAdmin(page: Page) {
 
 async function loginViewer(page: Page) {
   await page.goto("/login");
+  await revealPasswordForm(page);
   await page.locator("#password").fill(VIEWER_PW);
   await page.getByTestId("login-submit").click();
   await page.waitForURL("**/");

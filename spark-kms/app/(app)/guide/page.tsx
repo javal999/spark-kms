@@ -196,7 +196,9 @@ export default async function GuidePage() {
                 ["Open the knowledge graph", false, false, true],
               ].map(([label, v, a, s]) => (
                 <TableRow key={label as string}>
-                  <TableCell>{label as string}</TableCell>
+                  <TableCell className="whitespace-normal">
+                    {label as string}
+                  </TableCell>
                   {[v, a, s].map((allowed, i) => (
                     <TableCell key={i} className="text-center">
                       {allowed ? "Yes" : "—"}
@@ -217,9 +219,9 @@ export default async function GuidePage() {
         <p>
           There are two point streams, and they mean different things.{" "}
           <strong>{STREAM_LABELS.best_practice}</strong> holds the weekly award
-          and nothing else. <strong>{STREAM_LABELS.presenter}</strong> holds
-          every point you earn by keeping the record up to date. An area&apos;s
-          total is simply the two added together.
+          and nothing else. <strong>{STREAM_LABELS.presenter}</strong>{" "}
+          holds every point you earn by keeping the record up to date. An
+          area&apos;s total is simply the two added together.
         </p>
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -235,14 +237,18 @@ export default async function GuidePage() {
                 const rule = SCORING_RULES[e.reason];
                 return (
                   <TableRow key={e.reason}>
-                    <TableCell>
+                    {/* ui/table cells are whitespace-nowrap by default; these
+                        hold sentences, so they have to wrap. */}
+                    <TableCell className="align-top whitespace-normal">
                       <div className="font-medium">{e.what}</div>
                       <div className="mt-1 text-muted-foreground">{e.rule}</div>
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
+                    <TableCell className="align-top text-right font-semibold tabular-nums">
                       +{rule.points}
                     </TableCell>
-                    <TableCell>{STREAM_LABELS[rule.stream]}</TableCell>
+                    <TableCell className="align-top">
+                      {STREAM_LABELS[rule.stream]}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -308,9 +314,11 @@ export default async function GuidePage() {
             <TableBody>
               {SUBMIT_FIELDS.map((f) => (
                 <TableRow key={f.field}>
-                  <TableCell className="font-medium">{f.field}</TableCell>
-                  <TableCell>{f.required}</TableCell>
-                  <TableCell className="text-muted-foreground">{f.means}</TableCell>
+                  <TableCell className="align-top font-medium">{f.field}</TableCell>
+                  <TableCell className="align-top">{f.required}</TableCell>
+                  <TableCell className="align-top whitespace-normal text-muted-foreground">
+                    {f.means}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -358,11 +366,9 @@ export default async function GuidePage() {
           initiatives it found.
         </p>
         <p>
-          Limits: {MAX_UPLOAD_ROWS} rows and {maxUploadMb} MB per file. The same
-          file cannot be committed twice, so an accidental double upload is
-          blocked rather than doubling everyone&apos;s points. Ticking Best
-          Practice of the Week on every row does not multiply the award, because
-          the one-per-area-per-week cap still applies.
+          {/* One string, so no JSX text-node boundary can eat the spacing
+              around the interpolated limits. */}
+          {`Limits: ${MAX_UPLOAD_ROWS} rows and ${maxUploadMb} MB per file. The same file cannot be committed twice, so an accidental double upload is blocked rather than doubling everyone’s points. Ticking Best Practice of the Week on every row does not multiply the award, because the one-per-area-per-week cap still applies.`}
         </p>
       </Section>
 
@@ -372,9 +378,8 @@ export default async function GuidePage() {
           SPARK compares its title against every initiative already in the
           library. It ignores capitals and punctuation and looks for overlapping
           fragments of text, so &ldquo;Pop-up store Make Over&rdquo; and
-          &ldquo;pop up store makeover&rdquo; find each other. Anything more than
-          about {dedupPercent}% similar is shown to you, up to three
-          suggestions, closest first.
+          &ldquo;pop up store makeover&rdquo; find each other.{" "}
+          {`Anything more than about ${dedupPercent}% similar is shown to you, up to three suggestions, closest first.`}
         </p>
         <p>
           Nothing is ever merged automatically. You are being asked one question:

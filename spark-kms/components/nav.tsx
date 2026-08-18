@@ -37,11 +37,7 @@ type NavLink = {
 const links: NavLink[] = [
   { href: "/", label: "Dashboard", minRole: "viewer", icon: LayoutDashboard },
   { href: "/initiatives", label: "Initiatives", minRole: "viewer", icon: FolderKanban },
-  // The writing group sits above the reading group for admins: Submit, then
-  // the rulebook that explains what submitting does. Viewers see neither, so
-  // their nav stays Dashboard → Initiatives → Leaderboard.
   { href: "/submit", label: "Submit", minRole: "admin", icon: PlusCircle },
-  { href: "/guide", label: "How SPARK works", minRole: "admin", icon: BookOpen },
   { href: "/leaderboard", label: "Leaderboard", minRole: "viewer", icon: Trophy },
   { href: "/adjustments", label: "Adjustments", minRole: "admin", icon: Scale },
   // Insights + Graph are the analytics group. Graph is super-only and renders
@@ -49,6 +45,9 @@ const links: NavLink[] = [
   { href: "/insights", label: "Insights", minRole: "admin", icon: BarChart3, flag: "tracking" },
   { href: "/graph", label: "Graph", minRole: "super", icon: Share2, flag: "graph", indent: true },
   { href: "/admin", label: "Admin", minRole: "super", icon: Settings },
+  // Reference, not a destination you work from: the rulebook sits last, below
+  // Admin. A plain admin sees no Admin item, so it lands under Insights.
+  { href: "/guide", label: "How SPARK works", minRole: "admin", icon: BookOpen },
 ];
 
 function allowed(role: Role, min: Role): boolean {

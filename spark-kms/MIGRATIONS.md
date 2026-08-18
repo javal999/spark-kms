@@ -17,8 +17,19 @@ data, then apply and fill in the row below in the same session.
 | 0003 | `0003_v12_people_bestpresenter` | v1.2: `person` table, `entries.best_presenter`, CEE pillar | not recorded | **not recorded** — required by REQ-S7/D16 | not recorded | `run-reverse-retired.ts` (reverses retired CEE/presenter events) |
 | 0004–0011 | `0004_left_red_hulk` … `0011_blue_night_nurse` | Knowledge graph, usage tracking, AI links, SSO, archive | not recorded | not recorded | n/a | `run-reverse-first-entry.ts` ran in this window (2026-07-28, reverses the double-counted first entry) |
 | 0012 | `0012_melted_monster_badoon` | `Sulawesi` region (D22) | not recorded | not recorded | n/a | — |
-| — | *(no schema change)* | D23 stream reallocation | **pending** | **required before running** | **required** — run on a restored copy first | `run-reallocate-streams.ts` |
-| — | *(no schema change)* | D25 Best Presenter removal | **pending** | **required before running** | recommended | `run-reverse-best-presenter.ts` |
+| — | *(no schema change)* | D23 stream reallocation | 2026-08-18 | `spark-kms-pre-d23-20260818-094748` | integration test `reallocate-streams.test` + local test DB (304 gates green); snapshot is the rollback | `run-reallocate-streams.ts` — **moved 84**, skipped 0 |
+| — | *(no schema change)* | D25 Best Presenter removal | 2026-08-18 | `spark-kms-pre-d23-20260818-094748` (same batch) | integration test `remove-best-presenter.test` + local test DB | `run-reverse-best-presenter.ts` — **reversed 3** |
+
+### 2026-08-18 — D23 + D25 applied (image v25)
+
+Snapshot `spark-kms-pre-d23-20260818-094748` taken and confirmed `available` before any write. New code (D23/D25) deployed first so new points land on Contribution, then the ledger scripts ran (reallocation, then Best Presenter reversal). Per-stream totals:
+
+| Stream | Before | After |
+|---|---|---|
+| Best Practice (`best_practice`) | 128 | 44 (= 22 weekly awards × 2) |
+| Contribution (`presenter`) | 3 | 84 (= 84 initiatives × 1) |
+
+Live `best_presenter` points after reversal: **0**. Area totals unchanged (Total = both streams); only the split moved. `template_version` bumped to v1.3 in the same window. Both scripts append reversals through `scoring.reverse()` — no row deleted (REQ-S2).
 
 ## Backfill gaps
 

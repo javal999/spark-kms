@@ -30,19 +30,76 @@ aws/tap/lightsailctl`). `lightsailctl` needs the Colima socket:
 `export DOCKER_HOST=$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')`.
 
 ## Redeploy a new version of the app
+**The `--build-arg` flags are not optional.** `NEXT_PUBLIC_*` are inlined into
+the client bundle at build time and default to `0` in the `Dockerfile`. Build
+without them and the image ships with SSO, the graph and usage tracking dark, no
+matter what the runtime deployment env says — the runtime value only covers the
+server-side reads. This is exactly how deployment 29 shipped a login page with no
+"Sign in with Microsoft" button on 2026-08-24. Keep these three in step with the
+runtime `environment` block below.
+
 ```bash
 export DOCKER_HOST=$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')
 cd spark-kms
 # Build amd64 and load into local docker (Rosetta handles esbuild on Apple Silicon):
-docker buildx build --platform linux/amd64 --load -t spark-kms:latest .
+docker buildx build --platform linux/amd64 --load \
+  --build-arg NEXT_PUBLIC_FEATURE_GRAPH=1 \
+  --build-arg NEXT_PUBLIC_FEATURE_TRACKING=1 \
+  --build-arg NEXT_PUBLIC_FEATURE_SSO=1 \
+  -t spark-kms:latest .
 # Push to Lightsail's registry (returns a new :spark-kms.app.N reference):
 aws lightsail push-container-image --service-name spark-kms --label app --image spark-kms:latest --region ap-southeast-1
 # Then create a new deployment referencing that image tag (see deployment JSON in the runbook),
 # or edit it in the Lightsail console → Deployments → the image dropdown → Save.
 ```
-A deployment is `containers.app.image = :spark-kms.app.N`, `environment` (the 3
-vars above), `ports {"8080":"HTTP"}`, and `publicEndpoint` with healthCheck path
+
+**Build the deployment JSON from the live one, not from this page.** The running
+deployment carries **13** environment variables, not the 3 named above: the four
+`AZURE_*` for SSO, `CRON_SECRET` for the retention job, the three
+`NEXT_PUBLIC_FEATURE_*`, both `OPENROUTER_*`, plus `DATABASE_URL`,
+`SESSION_SECRET` and `NODE_ENV`. Hand-writing the environment block from this
+runbook silently drops the other ten. Copy the live one and change only the image:
+
+```bash
+aws lightsail get-container-service-deployments --service-name spark-kms \
+  --region ap-southeast-1 --query 'deployments[0]' --output json > current.json
+# edit containers.app.image to the new :spark-kms.app.N, keep environment verbatim
+aws lightsail create-container-service-deployment --service-name spark-kms \
+  --region ap-southeast-1 --cli-input-json "$(jq '{serviceName:"spark-kms", containers:{app:{image:.containers.app.image, environment:.containers.app.environment, ports:.containers.app.ports}}, publicEndpoint:{containerName:.publicEndpoint.containerName, containerPort:.publicEndpoint.containerPort, healthCheck:.publicEndpoint.healthCheck}}' current.json)"
+```
+
+A deployment is `containers.app.image = :spark-kms.app.N`, `environment` (all 13
+vars), `ports {"8080":"HTTP"}`, and `publicEndpoint` with healthCheck path
 `/api/health`, successCodes `200-399`.
+
+### After every deploy, check the flags actually survived
+`curl` cannot answer this. `/login` is a client component behind `<Suspense>`, so
+the sign-in buttons are not in the server-rendered HTML — grepping the response
+returns 0 whether SSO is on or off. Open the page in a browser and look for the
+**"Sign in with Microsoft"** button. If it is missing and only the viewer password
+form shows, the build args were missed: rebuild with them and redeploy, because
+the runtime env cannot fix an already-baked bundle.
+
+Cheaper and better: preflight the image locally before pushing it, which catches
+this without touching production at all.
+```bash
+curl -s https://kms.paracorplabs.com/api/health          # {"ok":true} — liveness only
+
+docker run -d --name spark-preflight -p 8081:8080 \
+  -e DATABASE_URL="postgresql://nobody:nobody@127.0.0.1:5432/nodb" \
+  -e SESSION_SECRET="preflight-only-not-a-real-secret-32chars" \
+  -e NODE_ENV=production \
+  -e NEXT_PUBLIC_FEATURE_SSO=1 -e NEXT_PUBLIC_FEATURE_GRAPH=1 -e NEXT_PUBLIC_FEATURE_TRACKING=1 \
+  spark-kms:latest
+# open http://localhost:8081/login — the Microsoft button must be there
+docker rm -f spark-preflight
+```
+The bogus `DATABASE_URL` is fine: the login page never touches the database.
+
+### Rollback
+Deployments are immutable and numbered. To go back, redeploy the previous image
+tag the same way (`:spark-kms.app.N-1`) — the env block is unchanged, only the
+image reference moves.
 
 ## Run a database migration (on schema changes)
 The DB isn't publicly reachable. To connect from a laptop for `db:migrate` /

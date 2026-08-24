@@ -1,7 +1,7 @@
 # SPARK KMS — handover
 
 **For:** the HR & Commercial Team. TODO (Levi): name the individual once assigned, and note what they already know about SPARK.
-**From:** Levi (Product Business Solutions Team). **Written:** 2026-08-19, against commit `07b54cc`.
+**From:** Levi (Product Business Solutions Team). **Written:** 2026-08-19, last updated 2026-08-24 against commit `501e3c8`.
 
 Read this before your first Claude Code session; return to section 5 whenever you are about to approve something.
 
@@ -19,11 +19,11 @@ Every number on every screen is summed live from the `score_events` ledger. Noth
 
 ## 2. Where the truth lives
 
-**`KMS-Requirements-Doc-v1.1.md` outranks every other document here.** When two disagree it wins, and the disagreement gets fixed rather than worked around. (The filename says v1.1; the content is v1.2 plus D20–D26.)
+**`KMS-Requirements-Doc-v1.1.md` outranks every other document here.** When two disagree it wins, and the disagreement gets fixed rather than worked around. (The filename says v1.1; the content is v1.2 plus D20–D30.)
 
 | Path | What it decides | Open it when |
 |---|---|---|
-| `KMS-Requirements-Doc-v1.1.md` | Scoring rulebook (§5), enums (§4.1), pages (§6), upload (§7), decision log D1–D26 (§12) | Any question of what the system is supposed to do |
+| `KMS-Requirements-Doc-v1.1.md` | Scoring rulebook (§5), enums (§4.1), pages (§6), upload (§7), decision log D1–D30 (§12) | Any question of what the system is supposed to do |
 | `KMS-v1.2-Epic-and-Plan.md` | The v1.2 reshape (4 streams to 2, CEE to a pillar, auto-awards) and its gates | You need the history behind the current scoring shape |
 | `KMS-Tech-Architecture-Task-Breakdown.md` | Stack, schema, API surface, build phases 1–5 | You need how it was built, not what it does |
 | `spark-kms/docs/` | Everything built after v1.2, each with its own spec: knowledge graph, usage tracking, AI-suggested links, M365 SSO, error observability, the August change batch | Work touches one of those features |
@@ -37,7 +37,7 @@ Every number on every screen is summed live from the `score_events` ledger. Noth
 
 1. `README.md`: "event-sourced **4-stream** point system". There are 2, and the second is **Contribution** (D23).
 2. `README.md` sends you to `spark-kms/README.md` to run the app. That file is untouched `create-next-app` boilerplate; the runbooks are `spark-kms/LIGHTSAIL-DEPLOY.md` and `DEPLOY.md`.
-3. `CLAUDE.md` and `spark-kms/AGENTS.md` say the decision log is **D1–D22**, and `CLAUDE.md` names the streams "Best Practice, Best Presenter". It runs to **D26**, and Best Presenter is gone (D25).
+3. `CLAUDE.md` and `spark-kms/AGENTS.md` say the decision log is **D1–D22**, and both name the streams "Best Practice, Best Presenter". It runs to **D30**, and Best Presenter is gone (D25).
 4. Requirements §10.2 has super-admins confirming BP-of-week and logging presenter/CEE points on Mondays. All three are gone: awards are automatic (D14), CEE is a pillar (D10), Best Presenter is retired (D25).
 5. Requirements §7.3 lists a Best Presenter template column and "Region — 5 values". The column went at template v1.3 (D25); there are **6** regions since Sulawesi (D22).
 6. Requirements §6 (Page 2) and §4.2 describe **two** weekly checkboxes. Only Best Practice of the Week remains.
@@ -60,7 +60,7 @@ Where: `scoring.ts`, REQ-S1.
 Change a point value, a cap, a stream or an enum, and the same commit edits the rulebook (§5), the enum list (§4.1) and adds a numbered decision (§12).
 Why: three changes shipped without it in July and August 2026 and the document went quietly wrong about point values.
 What breaks: the written record stops matching the system.
-Where: `CLAUDE.md`, decisions D20–D26.
+Where: `CLAUDE.md`, decisions D20–D30.
 
 **Scoring changes are written test-first.**
 Write the failing test from the requirement, watch it fail, then implement.
@@ -155,7 +155,7 @@ All commands run from `spark-kms/`.
 | `npm run db:migrate` | Applies migrations to the database in `.env` | After generating, locally first | Migration names printed, no error |
 | `npm run test:e2e` | Playwright journeys | Before a release that touches submit or roles | All specs pass |
 
-**Production** (`LIGHTSAIL-DEPLOY.md` is the runbook — follow it rather than improvising): AWS Lightsail in `ap-southeast-1`, container service `spark-kms` at scale 1, PostgreSQL `spark-kms-db` with `pg_trgm` and 7-day backups, about $30 a month. A deploy builds an amd64 image, pushes it to the service registry, and creates a deployment.
+**Production** (`LIGHTSAIL-DEPLOY.md` is the runbook — follow it rather than improvising): AWS Lightsail in `ap-southeast-1`, container service `spark-kms` at scale 1, PostgreSQL `spark-kms-db` with `pg_trgm` and 7-day backups, about $30 a month. A deploy builds an amd64 image, pushes it to the service registry, and creates a deployment. The `--build-arg NEXT_PUBLIC_FEATURE_*` flags in that build are not optional — they are compiled into the client bundle, and a deploy without them silently ships the app with SSO, the graph and tracking switched off. The runbook has carried them since 2026-08-24.
 
 **Who runs what.** This is the whole handover in one table.
 
@@ -175,11 +175,11 @@ TODO (Levi): confirm the daily `POST /api/cron/retention` job is really schedule
 
 ## 8. State of play
 
-**Shipped most recently:** the D27/D28/D29 UI batch — the dashboard's **Top Initiatives** two-level period filter (weekly / monthly / all-time), the Initiatives table fitting at 1280 px without horizontal scroll, and `/guide` in **English and Indonesian** behind a toggle. Before it, the `/guide` page itself (D26) and the D23/D24/D25 scoring batch. None of the three touched scoring or data.
+**Shipped most recently:** a security fix — `GET /api/admin/errors` was readable by any admin and is now super-admin only (D30, 2026-08-24). `proxy.ts` does not cover `/api`, so a route's own guard is its whole perimeter; that is the general lesson, not just this route. Before it, the D27/D28/D29 UI batch — the dashboard's **Top Initiatives** two-level period filter (weekly / monthly / all-time), the Initiatives table fitting at 1280 px without horizontal scroll, and `/guide` in **English and Indonesian** behind a toggle. Before it, the `/guide` page itself (D26) and the D23/D24/D25 scoring batch. None of the three touched scoring or data.
 
 **Last live-data changes**, both applied 2026-08-18 behind snapshot `spark-kms-pre-d23-20260818-094748`: the D23 reallocation moved **84** events to Contribution, and the D25 removal reversed **3**. Area totals were unchanged by the first, and dropped by the reversed awards on the second.
 
-**Tests:** 362 passing in 51 files, verified 2026-08-24. Phases 1–5 and the v1.2 batch are live; nothing in the backlog is blocking. The Playwright suite is 15 passing in 5 specs, also 2026-08-24: sign-in moved to one shared `tests/e2e/login.ts` that clicks past "Use a password instead", so the suite now runs with `NEXT_PUBLIC_FEATURE_SSO=1` instead of failing 9 of 15 at the login screen. Two specs that had been unrunnable behind that failure were asserting retired rules (pre-D22 Sulawesi, and the nomination-then-confirm flow v1.2 replaced with an auto-award) and were corrected to the current rulebook.
+**Tests:** 368 passing in 52 files, verified 2026-08-24 at commit `501e3c8`. Phases 1–5 and the v1.2 batch are live; nothing in the backlog is blocking. The Playwright suite is 15 passing in 5 specs, also 2026-08-24: sign-in moved to one shared `tests/e2e/login.ts` that clicks past "Use a password instead", so the suite now runs with `NEXT_PUBLIC_FEATURE_SSO=1` instead of failing 9 of 15 at the login screen. Two specs that had been unrunnable behind that failure were asserting retired rules (pre-D22 Sulawesi, and the nomination-then-confirm flow v1.2 replaced with an auto-award) and were corrected to the current rulebook.
 
 **The three risks worth knowing:**
 
@@ -193,7 +193,7 @@ TODO (Levi): confirm the daily `POST /api/cron/retention` job is really schedule
 2. Log into https://kms.paracorplabs.com and open `/guide` — the same rules in the admins' language, in English or Indonesian.
 3. Click one initiative through to its points panel, then the leaderboard and an Area drill-down.
 4. Ask Levi for a GitHub invite, an admin login, and the `.env` values you need locally.
-5. Run all four gates from `spark-kms/` and confirm 362 tests pass locally.
+5. Run all four gates from `spark-kms/` and confirm 368 tests pass locally.
 6. Start a Claude Code session at the repository root, ask the first example request in section 4, and check the answer against section 1 here.
 7. Fill the 2026-08 row of `docs/usage-snapshot.md` from `/insights`.
 8. Fix the six stale statements in section 2, one commit, no behaviour change.

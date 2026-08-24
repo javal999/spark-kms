@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { execSync } from "node:child_process";
 import { config } from "dotenv";
+import { loginAs, loginViewer, SUPER, ADMIN } from "./login";
 
 /**
  * Gate 4: three-role journeys, rate-limit, the nomination→confirm flow
@@ -11,24 +12,6 @@ import { config } from "dotenv";
  * last so the empty-data smoke sees a clean board first.
  */
 
-const SUPER = { email: "super@spark.local", password: "super-password-123" };
-const ADMIN = { email: "admin@spark.local", password: "admin-password-123" };
-const VIEWER_PW = "viewer-password-123";
-
-async function loginAdmin(page: Page, who: { email: string; password: string }) {
-  await page.goto("/login");
-  await page.getByTestId("toggle-mode").click();
-  await page.locator("#email").fill(who.email);
-  await page.locator("#password").fill(who.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
-async function loginViewer(page: Page) {
-  await page.goto("/login");
-  await page.locator("#password").fill(VIEWER_PW);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
 async function selectOption(page: Page, testid: string, option: string) {
   await page.getByTestId(testid).click();
   await page.getByRole("option", { name: option, exact: true }).click();
@@ -61,13 +44,13 @@ test.describe.serial("Gate 4", () => {
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/$/);
     // Regular admin
-    await loginAdmin(page, ADMIN);
+    await loginAs(page, ADMIN);
     await expect(page.getByRole("link", { name: "Submit", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/$/);
     // Super admin
-    await loginAdmin(page, SUPER);
+    await loginAs(page, SUPER);
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
   });
@@ -85,41 +68,36 @@ test.describe.serial("Gate 4", () => {
   });
 
   test("adjustment without a note is rejected (super)", async ({ page }) => {
-    await loginAdmin(page, SUPER);
+    await loginAs(page, SUPER);
     const res = await page.request.post("/api/admin/adjustment", {
       data: { region: "Sumatera", segment: "Masstige", stream: "best_practice", points: 3, effectiveDate: "2026-07-01", note: "" },
     });
     expect(res.status()).toBe(400);
   });
 
-  test("nomination awards nothing until a super-admin confirms it (+2)", async ({ page }) => {
-    await loginAdmin(page, SUPER);
+  test("ticking Best Practice of the Week auto-awards +2, with no confirmation step", async ({ page }) => {
+    await loginAs(page, SUPER);
 
-    // Create an initiative and nominate its entry for BP-of-week.
+    // v1.2 items 5-6: ticking the box awards +2 immediately, capped 1/Area/week.
+    // The nomination queue and the super-admin "Confirm +2" button are gone.
     await page.goto("/submit");
     await selectOption(page, "region", "EJBN");
     await selectOption(page, "segment", "Halal PC");
-    await page.getByTestId("title").fill("Nomination Flow Topic");
+    await page.getByTestId("title").fill("Auto Award Topic");
     await page.getByTestId("check-duplicates").click();
     await page.getByTestId("pic").fill("Tester");
     await selectOption(page, "pillar", "Social Buzz");
-    await page.getByTestId("detail").fill("A nominated entry.");
+    await page.getByTestId("detail").fill("A Best-Practice-of-the-Week entry.");
     await page.getByTestId("bp-nominate").click();
     await page.getByTestId("submit-new").click();
     await page.waitForURL(/\/initiatives\/\d+$/);
-    const detailUrl = page.url();
 
-    // Before confirm: +1 new +1 entry = 2, nomination scored nothing.
-    await expect(page.getByTestId("points-total")).toHaveText("2");
+    // D20: creating an initiative is +1 in total, because the first entry folds
+    // into it. The tick adds +2 Best Practice on top, so the total is 3.
+    await expect(page.getByTestId("points-total")).toHaveText("3");
 
-    // Confirm in the console.
+    // The retired confirmation step really is absent, not merely unused.
     await page.goto("/admin");
-    await expect(page.getByText("Nomination Flow Topic")).toBeVisible();
-    await page.getByRole("button", { name: "Confirm +2" }).first().click();
-    await expect(page.getByTestId("no-nominations")).toBeVisible();
-
-    // After confirm: +2 lands → total 4.
-    await page.goto(detailUrl);
-    await expect(page.getByTestId("points-total")).toHaveText("4");
+    await expect(page.getByRole("button", { name: /Confirm \+2/ })).toHaveCount(0);
   });
 });

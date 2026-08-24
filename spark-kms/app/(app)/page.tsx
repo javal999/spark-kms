@@ -1,8 +1,19 @@
 import Link from "next/link";
 import { dashboardStats, topInitiatives } from "@/src/services/scores";
-import { recentWeekKeys, formatWeekLabel } from "@/src/services/week";
+import {
+  recentWeekKeys,
+  formatWeekLabel,
+  recentMonthKeys,
+  formatMonthLabel,
+} from "@/src/services/week";
+import {
+  resolvePeriod,
+  PERIOD_PARAM,
+  KEY_PARAM,
+  LEGACY_PARAM,
+} from "@/src/lib/period";
 import { StatCard, DistributionBars } from "@/components/dashboard-widgets";
-import { WeekSelector } from "@/components/week-selector";
+import { PeriodSelector } from "@/components/period-selector";
 import { Badge } from "@/components/ui/badge";
 import { readSession } from "@/src/lib/session";
 import { isAdmin } from "@/src/lib/session-config";
@@ -24,17 +35,39 @@ export default async function DashboardPage({
     key,
     label: formatWeekLabel(key),
   }));
-  // v1.2 (item 10): Weekly Top Initiatives defaults to the current week; the
-  // user can still pick an older week or All-time from the selector. Absent
-  // param → current week (default); explicit "all-time" → all-time (undefined).
-  const currentWeek = weeks[0]?.key;
-  const topweekParam = first(sp.topweek);
-  const week =
-    topweekParam === "all-time" ? undefined : (topweekParam ?? currentWeek);
+  const months = recentMonthKeys(6).map((key) => ({
+    key,
+    label: formatMonthLabel(key),
+  }));
+  // v1.2 (item 10), reshaped in D27: Top Initiatives defaults to the current
+  // week and can be switched to any recent week, any recent month, or all-time.
+  // The pre-D27 `?topweek=` links still resolve — see src/lib/period.ts.
+  const currentWeek = weeks[0]?.key ?? "";
+  const selection = resolvePeriod({
+    period: first(sp[PERIOD_PARAM]),
+    key: first(sp[KEY_PARAM]),
+    legacyWeek: first(sp[LEGACY_PARAM]),
+  });
+  // A hand-edited or bookmarked URL can name a period outside the recent lists;
+  // add it so the picker shows what the list below is actually filtered to.
+  const known = selection.type === "month" ? months : weeks;
+  const options =
+    selection.key && !known.some((o) => o.key === selection.key)
+      ? [
+          {
+            key: selection.key,
+            label:
+              selection.type === "month"
+                ? formatMonthLabel(selection.key)
+                : formatWeekLabel(selection.key),
+          },
+          ...known,
+        ]
+      : known;
 
   const [stats, top, session] = await Promise.all([
     dashboardStats(),
-    topInitiatives(week, 8),
+    topInitiatives(selection.period, 8),
     readSession(),
   ]);
   const admin = isAdmin(session.role);
@@ -129,17 +162,25 @@ export default async function DashboardPage({
       {/* Top initiatives */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Weekly Top Initiatives</h2>
-          <WeekSelector
-            param="topweek"
-            weeks={weeks}
-            defaultValue={currentWeek}
+          <h2 className="text-lg font-medium">Top Initiatives</h2>
+          <PeriodSelector
+            type={selection.type}
+            periodKey={selection.key}
+            weeks={selection.type === "month" ? weeks : options}
+            months={selection.type === "month" ? options : months}
+            defaultKey={currentWeek}
           />
         </div>
         <div className="rounded-lg border bg-card">
           {top.length === 0 ? (
             <p className="p-6 text-center text-sm text-muted-foreground">
-              No scored initiatives {week ? "in this week" : "yet"}.
+              No scored initiatives{" "}
+              {selection.type === "week"
+                ? "in this week"
+                : selection.type === "month"
+                  ? "in this month"
+                  : "yet"}
+              .
             </p>
           ) : (
             <ol className="divide-y">

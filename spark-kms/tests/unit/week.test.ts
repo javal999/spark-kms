@@ -7,6 +7,12 @@ import {
   weekDateRange,
   recentWeekKeys,
   formatWeekLabel,
+  monthOf,
+  monthRangeFromKey,
+  recentMonthKeys,
+  formatMonthLabel,
+  periodRange,
+  formatPeriodLabel,
 } from "@/src/services/week";
 
 /**
@@ -126,5 +132,126 @@ describe("recentWeekKeys / formatWeekLabel", () => {
 
   it("formats a week label as a Jakarta date range", () => {
     expect(formatWeekLabel("2026-W28")).toBe("6 Jul – 12 Jul 2026");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Calendar months (D27). Same Jakarta rules as the week helpers above.
+// ---------------------------------------------------------------------------
+
+describe("monthOf", () => {
+  it("returns the Jakarta calendar month", () => {
+    expect(monthOf(jkt("2026-08-24T10:00:00"))).toBe("2026-08");
+    expect(monthOf(jkt("2026-01-01T00:00:00"))).toBe("2026-01");
+    expect(monthOf(jkt("2026-12-31T23:59:59"))).toBe("2026-12");
+  });
+
+  it("uses Jakarta, not UTC, at the month boundary", () => {
+    // 2026-08-31T20:00 UTC is 2026-09-01T03:00 Jakarta.
+    expect(monthOf(new Date("2026-08-31T20:00:00Z"))).toBe("2026-09");
+    // 2026-09-01T00:30 UTC is still 2026-09-01 in Jakarta (07:30).
+    expect(monthOf(new Date("2026-09-01T00:30:00Z"))).toBe("2026-09");
+    // 2026-08-31T16:59 UTC is 2026-08-31T23:59 Jakarta — still August.
+    expect(monthOf(new Date("2026-08-31T16:59:00Z"))).toBe("2026-08");
+  });
+});
+
+describe("monthRangeFromKey", () => {
+  it("spans the first instant to the last instant of the month, Jakarta", () => {
+    const { start, end } = monthRangeFromKey("2026-08");
+    expect(start.toISOString()).toBe("2026-07-31T17:00:00.000Z"); // 1 Aug 00:00 WIB
+    expect(end.toISOString()).toBe("2026-08-31T16:59:59.999Z"); // 31 Aug 23:59:59.999 WIB
+  });
+
+  it("handles February and a year boundary", () => {
+    expect(monthRangeFromKey("2026-02").end.toISOString()).toBe(
+      "2026-02-28T16:59:59.999Z",
+    );
+    expect(monthRangeFromKey("2028-02").end.toISOString()).toBe(
+      "2028-02-29T16:59:59.999Z", // leap year
+    );
+    expect(monthRangeFromKey("2026-12").end.toISOString()).toBe(
+      "2026-12-31T16:59:59.999Z",
+    );
+  });
+
+  it("round-trips with monthOf at both edges", () => {
+    for (const key of ["2026-01", "2026-08", "2026-12"]) {
+      const { start, end } = monthRangeFromKey(key);
+      expect(monthOf(start)).toBe(key);
+      expect(monthOf(end)).toBe(key);
+    }
+  });
+
+  it("rejects a malformed or impossible key", () => {
+    expect(() => monthRangeFromKey("2026-13")).toThrow();
+    expect(() => monthRangeFromKey("2026-00")).toThrow();
+    expect(() => monthRangeFromKey("2026-W08")).toThrow();
+    expect(() => monthRangeFromKey("not-a-month")).toThrow();
+  });
+});
+
+describe("recentMonthKeys", () => {
+  it("returns the current month first, then back in order", () => {
+    expect(recentMonthKeys(6, jkt("2026-08-24T09:00:00"))).toEqual([
+      "2026-08",
+      "2026-07",
+      "2026-06",
+      "2026-05",
+      "2026-04",
+      "2026-03",
+    ]);
+  });
+
+  it("crosses the year boundary backwards", () => {
+    expect(recentMonthKeys(3, jkt("2026-01-15T09:00:00"))).toEqual([
+      "2026-01",
+      "2025-12",
+      "2025-11",
+    ]);
+  });
+
+  it("does not skip a month when today is the 31st", () => {
+    // Naive month arithmetic on the 31st lands on 1 March; day 15 avoids it.
+    expect(recentMonthKeys(3, jkt("2026-03-31T09:00:00"))).toEqual([
+      "2026-03",
+      "2026-02",
+      "2026-01",
+    ]);
+  });
+});
+
+describe("formatMonthLabel", () => {
+  it("formats as short month plus year", () => {
+    expect(formatMonthLabel("2026-08")).toBe("Aug 2026");
+    expect(formatMonthLabel("2026-01")).toBe("Jan 2026");
+    expect(formatMonthLabel("2025-12")).toBe("Dec 2025");
+  });
+
+  it("rejects a malformed key", () => {
+    expect(() => formatMonthLabel("2026-8")).toThrow();
+  });
+});
+
+describe("periodRange", () => {
+  it("delegates to the week helper for a week period", () => {
+    expect(periodRange({ kind: "week", key: "2026-W35" })).toEqual(
+      weekRangeFromKey("2026-W35"),
+    );
+  });
+
+  it("delegates to the month helper for a month period", () => {
+    expect(periodRange({ kind: "month", key: "2026-08" })).toEqual(
+      monthRangeFromKey("2026-08"),
+    );
+  });
+});
+
+describe("formatPeriodLabel", () => {
+  it("formats each kind with its own formatter", () => {
+    expect(formatPeriodLabel({ kind: "month", key: "2026-08" })).toBe("Aug 2026");
+    expect(formatPeriodLabel({ kind: "week", key: "2026-W35" })).toBe(
+      formatWeekLabel("2026-W35"),
+    );
   });
 });

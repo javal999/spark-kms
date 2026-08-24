@@ -122,3 +122,73 @@ export function weekDateRange(entryDate: string): { start: string; end: string }
   const noon = new Date(`${entryDate}T12:00:00+07:00`);
   return { start: jakartaDate(weekStart(noon)), end: jakartaDate(weekEnd(noon)) };
 }
+
+// ---------------------------------------------------------------------------
+// Calendar months (D27). Same Jakarta wall-clock trick as the week helpers:
+// months are calendar months, so unlike weeks they never straddle a year.
+// ---------------------------------------------------------------------------
+
+/** Calendar-month key "YYYY-MM" for the month containing `date`, in Jakarta. */
+export function monthOf(date: Date): string {
+  const jkt = new Date(date.getTime() + OFFSET_MS);
+  const m = String(jkt.getUTCMonth() + 1).padStart(2, "0");
+  return `${jkt.getUTCFullYear()}-${m}`;
+}
+
+/** Parse "YYYY-MM" back into the first-instant → last-instant Jakarta range. */
+export function monthRangeFromKey(key: string): { start: Date; end: Date } {
+  const match = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!match) throw new Error(`Invalid month key: ${key}`);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) throw new Error(`Invalid month key: ${key}`);
+  // Jakarta wall-clock midnight of the 1st, and of the 1st of the next month.
+  const startJkt = Date.UTC(year, month - 1, 1);
+  const nextJkt = Date.UTC(year, month, 1);
+  return {
+    start: new Date(startJkt - OFFSET_MS),
+    end: new Date(nextJkt - OFFSET_MS - 1),
+  };
+}
+
+/** The current month key plus the previous `count-1` months, newest first. */
+export function recentMonthKeys(count: number, now: Date = new Date()): string[] {
+  const jkt = new Date(now.getTime() + OFFSET_MS);
+  const keys: string[] = [];
+  for (let i = 0; i < count; i++) {
+    // Day 15 keeps the arithmetic clear of month-length edges.
+    const d = new Date(Date.UTC(jkt.getUTCFullYear(), jkt.getUTCMonth() - i, 15));
+    keys.push(monthOf(new Date(d.getTime() - OFFSET_MS)));
+  }
+  return keys;
+}
+
+/** Human label for a month key, e.g. "Aug 2026". */
+export function formatMonthLabel(monthKey: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!match) throw new Error(`Invalid month key: ${monthKey}`);
+  return `${MONTHS[Number(match[2]) - 1]} ${match[1]}`;
+}
+
+/**
+ * A period a score view can be restricted to (D27). `undefined` everywhere a
+ * `Period` is optional means all-time, which is how the read services already
+ * treated an absent week key.
+ */
+export type Period =
+  | { kind: "week"; key: string }
+  | { kind: "month"; key: string };
+
+/** The Jakarta instant range covered by a period. */
+export function periodRange(period: Period): { start: Date; end: Date } {
+  return period.kind === "week"
+    ? weekRangeFromKey(period.key)
+    : monthRangeFromKey(period.key);
+}
+
+/** Human label for a period, delegating to the week or month formatter. */
+export function formatPeriodLabel(period: Period): string {
+  return period.kind === "week"
+    ? formatWeekLabel(period.key)
+    : formatMonthLabel(period.key);
+}

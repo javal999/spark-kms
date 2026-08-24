@@ -24,13 +24,17 @@ function list(v: string | string[] | undefined): string[] {
   return s ? s.split(",").filter(Boolean) : [];
 }
 
-const COLUMNS: { key: string; label: string }[] = [
-  { key: "id", label: "ID" },
-  { key: "region", label: "Region" },
-  { key: "segment", label: "Segment" },
-  { key: "pillar", label: "Pillar" },
+// D28: the table is `table-fixed`, so these widths are what the browser uses
+// rather than a suggestion. Title is the one column with no width — it takes
+// whatever is left and truncates, which is what keeps Stage, Done and Flags on
+// screen at 1280px however long a title runs.
+const COLUMNS: { key: string; label: string; width?: string }[] = [
+  { key: "id", label: "ID", width: "w-16" },
+  { key: "region", label: "Region", width: "w-32" },
+  { key: "segment", label: "Segment", width: "w-28" },
+  { key: "pillar", label: "Pillar", width: "w-32" },
   { key: "title", label: "Title" },
-  { key: "stage", label: "Stage" },
+  { key: "stage", label: "Stage", width: "w-32" },
 ];
 
 // v1.2 (item 12): action-items-done %. "—" when the initiative has no
@@ -127,11 +131,11 @@ export default async function InitiativesPage({
       {!showArchived && <InitiativesFilters />}
 
       <div className="rounded-lg border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               {COLUMNS.map((c) => (
-                <TableHead key={c.key}>
+                <TableHead key={c.key} className={c.width}>
                   <Link
                     href={sortHref(c.key)}
                     className="inline-flex items-center gap-1 hover:underline"
@@ -143,8 +147,8 @@ export default async function InitiativesPage({
                   </Link>
                 </TableHead>
               ))}
-              <TableHead className="text-right">Done</TableHead>
-              <TableHead>Flags</TableHead>
+              <TableHead className="w-16 text-right">Done</TableHead>
+              <TableHead className="w-36">Flags</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,15 +166,25 @@ export default async function InitiativesPage({
             {rows.map((r) => (
               <TableRow key={r.id} data-testid="initiative-row">
                 <TableCell className="font-mono text-xs">#{r.id}</TableCell>
-                <TableCell>{r.region}</TableCell>
-                <TableCell>{r.segment}</TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="truncate" title={r.region}>
+                  {r.region}
+                </TableCell>
+                <TableCell className="truncate" title={r.segment}>
+                  {r.segment}
+                </TableCell>
+                <TableCell
+                  className="truncate text-muted-foreground"
+                  title={r.pillar}
+                >
                   {r.pillar}
                 </TableCell>
                 <TableCell>
+                  {/* Titles run long. One line, ellipsised, full text on hover
+                      — the alternative is Stage, Done and Flags off-screen. */}
                   <Link
                     href={`/initiatives/${r.id}`}
-                    className="font-medium hover:underline"
+                    className="block truncate font-medium hover:underline"
+                    title={r.title}
                     data-testid={`row-title-${r.id}`}
                   >
                     {r.title}
@@ -190,7 +204,7 @@ export default async function InitiativesPage({
                 >
                   {donePctLabel(r.actionDone, r.actionTotal)}
                 </TableCell>
-                <TableCell className="space-x-1">
+                <TableCell className="truncate space-x-1">
                   {r.hasUnlocking && (
                     <Badge
                       variant="secondary"

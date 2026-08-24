@@ -1,40 +1,11 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { loginAdmin, loginViewer } from "./login";
 
 /**
  * /guide ("How SPARK works") — the admin-facing rulebook.
  * Checks the role gate both ways and that the page renders its values from the
  * live code rather than placeholder text. Runs against the seeded TEST database.
  */
-
-const SUPER = { email: "super@spark.local", password: "super-password-123" };
-const VIEWER_PW = "viewer-password-123";
-
-/**
- * With M365 SSO enabled the password form starts hidden behind a link, so
- * reveal it first. No-op when the flag is off and the form is already there.
- */
-async function revealPasswordForm(page: Page) {
-  const reveal = page.getByRole("button", { name: "Use a password instead" });
-  if (await reveal.isVisible().catch(() => false)) await reveal.click();
-}
-
-async function loginAdmin(page: Page) {
-  await page.goto("/login");
-  await revealPasswordForm(page);
-  await page.getByTestId("toggle-mode").click();
-  await page.locator("#email").fill(SUPER.email);
-  await page.locator("#password").fill(SUPER.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
-
-async function loginViewer(page: Page) {
-  await page.goto("/login");
-  await revealPasswordForm(page);
-  await page.locator("#password").fill(VIEWER_PW);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
 
 test.describe("Guide page", () => {
   test("an admin can open it and it shows the live scoring values", async ({

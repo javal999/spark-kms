@@ -1,17 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
+import { loginAdmin } from "./login";
 
 /** Gate 2 UI smoke: scoring surfaces on the dashboard, leaderboard, and detail. */
-
-const SUPER = { email: "super@spark.local", password: "super-password-123" };
-
-async function loginAdmin(page: Page) {
-  await page.goto("/login");
-  await page.getByTestId("toggle-mode").click();
-  await page.locator("#email").fill(SUPER.email);
-  await page.locator("#password").fill(SUPER.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
 
 async function selectOption(page: Page, testid: string, option: string) {
   await page.getByTestId(testid).click();

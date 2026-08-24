@@ -1,26 +1,17 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import ExcelJS from "exceljs";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { loginAdmin } from "./login";
 
 /** Gate 3 UI smoke: the bulk-upload flow (choose file → preview → commit). */
 
-const SUPER = { email: "super@spark.local", password: "super-password-123" };
 const HEADERS = [
   "Tanggal", "Region", "Segment", "PIC", "Pillar", "Category", "Topic/Tema",
   "Description", "Progress", "Need Follow Up Action/Unlocking", "Stage",
   "Best Practices of The Week", "Link File",
 ];
-
-async function loginAdmin(page: Page) {
-  await page.goto("/login");
-  await page.getByTestId("toggle-mode").click();
-  await page.locator("#email").fill(SUPER.email);
-  await page.locator("#password").fill(SUPER.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
 
 async function makeFile(rows: string[][], name: string): Promise<string> {
   const wb = new ExcelJS.Workbook();
@@ -72,14 +63,17 @@ test("a file with an off-enum row shows the error and blocks commit", async ({ p
   await loginAdmin(page);
   await page.goto("/submit");
 
+  // "Papua", not "Sulawesi": D22 made Sulawesi a real Region, so the row this
+  // test used to reject is now a valid one. The off-enum value has to be a
+  // region that is genuinely not in src/lib/enums.ts.
   const path = await makeFile(
     [
-      ["2026-07-01", "Sulawesi", "ALL", "PIC", "Activated New Touchpoint", "Best Practice", "Off Enum Topic", "", "progress", "", "", "FALSE", ""],
+      ["2026-07-01", "Papua", "ALL", "PIC", "Activated New Touchpoint", "Best Practice", "Off Enum Topic", "", "progress", "", "", "FALSE", ""],
     ],
     `spark-e2e-bad-${Date.now()}.xlsx`,
   );
 
   await page.getByTestId("upload-input").setInputFiles(path);
-  await expect(page.getByText(/Sulawesi.*not a valid region/i)).toBeVisible();
+  await expect(page.getByText(/Papua.*not a valid region/i)).toBeVisible();
   await expect(page.getByTestId("commit-upload")).toBeDisabled();
 });

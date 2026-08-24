@@ -1,28 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { loginAdmin, loginViewer } from "./login";
 
 /**
  * Gate 1 (phase 1 exit): create → find → view; duplicate flow both branches;
  * non-admin cannot reach /submit. Runs against the seeded TEST database.
  */
-
-const SUPER = { email: "super@spark.local", password: "super-password-123" };
-const VIEWER_PW = "viewer-password-123";
-
-async function loginAdmin(page: Page) {
-  await page.goto("/login");
-  await page.getByTestId("toggle-mode").click();
-  await page.locator("#email").fill(SUPER.email);
-  await page.locator("#password").fill(SUPER.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
-
-async function loginViewer(page: Page) {
-  await page.goto("/login");
-  await page.locator("#password").fill(VIEWER_PW);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/");
-}
 
 // shadcn/base-ui Select: click the trigger, then the option by its text.
 async function selectOption(page: Page, testid: string, option: string) {

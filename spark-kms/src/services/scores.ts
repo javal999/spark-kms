@@ -1,6 +1,13 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/src/db";
-import { weekStart, weekEnd, weekRangeFromKey, jakartaDate } from "@/src/services/week";
+import {
+  weekStart,
+  weekEnd,
+  weekRangeFromKey,
+  periodRange,
+  jakartaDate,
+  type Period,
+} from "@/src/services/week";
 
 /**
  * Read-only score aggregations. REQ-S1: no stored totals — every number here is
@@ -11,6 +18,16 @@ import { weekStart, weekEnd, weekRangeFromKey, jakartaDate } from "@/src/service
 function weekFilter(weekKey?: string) {
   if (!weekKey) return { start: null as string | null, end: null as string | null };
   const { start, end } = weekRangeFromKey(weekKey);
+  return { start: jakartaDate(start), end: jakartaDate(end) };
+}
+
+/**
+ * Same shape as weekFilter, for the week-or-month period the dashboard's Top
+ * Initiatives filter selects (D27). Absent period = all-time.
+ */
+function periodFilter(period?: Period) {
+  if (!period) return { start: null as string | null, end: null as string | null };
+  const { start, end } = periodRange(period);
   return { start: jakartaDate(start), end: jakartaDate(end) };
 }
 
@@ -101,12 +118,15 @@ export type TopInitiative = {
   points: number;
 };
 
-/** Initiatives ranked by SUM of their linked score events (week or all-time). */
+/**
+ * Initiatives ranked by SUM of their linked score events. `period` restricts to
+ * one week or one calendar month (D27); omit it for all-time.
+ */
 export async function topInitiatives(
-  weekKey?: string,
+  period?: Period,
   limit = 10,
 ): Promise<TopInitiative[]> {
-  const { start, end } = weekFilter(weekKey);
+  const { start, end } = periodFilter(period);
   const dateClause = start
     ? sql`AND se.effective_date BETWEEN ${start} AND ${end}`
     : sql``;

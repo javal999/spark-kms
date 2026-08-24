@@ -134,7 +134,9 @@ export async function opTopInitiatives(
   assertScope(ctx, "read");
   const wk = parse(weekKeySchema, weekKey);
   const lim = parse(z.number().int().positive().max(100).optional(), limit);
-  return topInitiatives(wk, lim ?? 10);
+  // Week-keyed for partner integrations; the dashboard's month option (D27) is
+  // deliberately not exposed here.
+  return topInitiatives(wk ? { kind: "week", key: wk } : undefined, lim ?? 10);
 }
 
 // ---------------------------------------------------------------------------

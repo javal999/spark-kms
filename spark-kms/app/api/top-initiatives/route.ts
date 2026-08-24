@@ -9,5 +9,9 @@ export async function GET(req: NextRequest) {
   const gate = await requireViewer();
   if (gate instanceof NextResponse) return gate;
   const week = req.nextUrl.searchParams.get("week") ?? undefined;
-  return NextResponse.json({ rows: await topInitiatives(week) });
+  // The API contract stays week-keyed; the period filter added in D27 is a
+  // dashboard control, not a change to this endpoint.
+  return NextResponse.json({
+    rows: await topInitiatives(week ? { kind: "week", key: week } : undefined),
+  });
 }

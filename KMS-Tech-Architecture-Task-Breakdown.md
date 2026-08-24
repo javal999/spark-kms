@@ -145,7 +145,7 @@ All under `app/api/`. Auth middleware: `viewer` (any session), `admin`, `super`.
 2.2 Wire scoring into create/append/delete paths (compensating events on delete).
 2.3 Golden fixture `spark-45.ts`: the 45 real entries (Sulawesi -> nearest valid region, Core Excellence Execution -> Key Territory Execution, spellings normalized; mark corrections in the fixture file). **Golden test: replaying the fixture reproduces the real file's per-area Best Practice scores (2 x confirmed BP flags) exactly.**
 2.4 Dashboard page + /api/dashboard: counters (Total/New/Existing per week.ts), stage summary, 3 distributions, category split. Every number links to the pre-filtered list.
-2.5 Top initiatives (all-time + week selector with previous weeks).
+2.5 Top Initiatives (**D27:** two-level period filter — Weekly / Monthly / All-time, then which week or month. `src/lib/period.ts` maps `?topperiod=`/`?topkey=` and the pre-D27 `?topweek=`; month helpers live beside the week helpers in `src/services/week.ts`; `topInitiatives()` takes a `Period`, while `/api/top-initiatives` and the MCP operation stay week-keyed).
 2.6 Leaderboard page: rank, region, segment, 4 stream columns + total; top-3 highlight; ties share rank; week toggle; score cells click through to their event lists.
 
 **Gate 2:** unit: all scoring rules incl. caps, backdating (cap applies to backdated date), reversal; golden test passes; property test: dashboard/leaderboard numbers always equal direct SUM queries; soft warning shown for entry_date > 30 days old.

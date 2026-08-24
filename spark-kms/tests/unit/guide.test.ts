@@ -15,6 +15,13 @@ import {
 } from "@/src/services/template";
 import { MAX_UPLOAD_ROWS, MAX_UPLOAD_BYTES } from "@/src/services/upload";
 import { DEFAULT_DEDUP_THRESHOLD } from "@/src/services/duplicates";
+import {
+  GUIDE_COPY,
+  LANGS,
+  resolveLang,
+  t,
+  type GuideKey,
+} from "@/src/content/guide-copy";
 
 /**
  * Drift guard for the /guide page ("How SPARK works").
@@ -132,5 +139,95 @@ describe("guide page: values are read from the code, not retyped", () => {
   it("is gated to admins", () => {
     expect(guideSource).toContain("isAdmin");
     expect(guideSource).toContain('redirect("/")');
+  });
+});
+
+/**
+ * D29: the prose moved to src/content/guide-copy.ts in English and Indonesian.
+ * The page still owns the structure and still renders every value from the code
+ * modules above — the checks in this file's earlier blocks cover that. What is
+ * added here is the bilingual half: both languages exist for every key, and
+ * neither language retypes a number the page is supposed to read from the code.
+ */
+
+describe("guide copy: both languages, no drift", () => {
+  it("every key has non-empty English and Indonesian", () => {
+    const entries = Object.entries(GUIDE_COPY);
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [key, value] of entries) {
+      for (const lang of LANGS) {
+        expect(typeof value[lang], `${key}.${lang} is missing`).toBe("string");
+        expect(value[lang].trim().length, `${key}.${lang} is empty`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("no key exists in one language only", () => {
+    for (const [key, value] of Object.entries(GUIDE_COPY)) {
+      expect(Object.keys(value).sort(), `${key} key parity`).toEqual([
+        ...LANGS,
+      ].sort());
+    }
+  });
+
+  it("values the page reads from code are placeholders, in both languages", () => {
+    const placeholders: Array<[GuideKey, string[]]> = [
+      ["points.p1", ["{bp}", "{contrib}"]],
+      ["upload.p1", ["{version}"]],
+      ["upload.p4", ["{rows}", "{mb}"]],
+      ["duplicates.p1", ["{pct}"]],
+    ];
+    for (const [key, needles] of placeholders) {
+      for (const lang of LANGS) {
+        for (const needle of needles) {
+          expect(
+            GUIDE_COPY[key][lang].includes(needle),
+            `${key}.${lang} should carry ${needle}`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("neither language retypes a live value as a literal", () => {
+    const copySource = readFileSync(
+      path.join(process.cwd(), "src/content/guide-copy.ts"),
+      "utf8",
+    );
+    for (const literal of [
+      DEFAULT_TEMPLATE_VERSION,
+      String(MAX_UPLOAD_ROWS),
+      String(Math.round(DEFAULT_DEDUP_THRESHOLD * 100)),
+      String(STREAM_LABELS.presenter),
+    ]) {
+      expect(
+        copySource.includes(literal),
+        `guide copy hard-codes "${literal}" instead of interpolating it`,
+      ).toBe(false);
+    }
+  });
+
+  it("interpolation fills placeholders and leaves the rest alone", () => {
+    expect(t("upload.p1", "en", { version: "v9.9" })).toContain("v9.9");
+    expect(t("upload.p1", "id", { version: "v9.9" })).toContain("v9.9");
+    expect(t("upload.p1", "en", { version: "v9.9" })).not.toContain("{version}");
+  });
+
+  it("an unknown ?lang= value falls back to English", () => {
+    expect(resolveLang(undefined)).toBe("en");
+    expect(resolveLang("fr")).toBe("en");
+    expect(resolveLang("id")).toBe("id");
+  });
+});
+
+describe("guide page: the language toggle is wired up", () => {
+  it("reads the language from the query string and renders both options", () => {
+    expect(guideSource).toContain("resolveLang");
+    expect(guideSource).toContain("searchParams");
+    expect(guideSource).toContain("LangToggle");
+  });
+
+  it("takes its prose from the copy module rather than inline strings", () => {
+    expect(guideSource).toContain("@/src/content/guide-copy");
   });
 });

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 
 const ALL = "all-time";
+const ALL_LABEL = "All-time";
 
 /**
  * URL-driven week picker (All-time + recent weeks). Writes `?<param>=YYYY-Www`
@@ -41,13 +42,20 @@ export function WeekSelector({
     router.push(next.toString() ? `${pathname}?${next.toString()}` : pathname);
   }
 
+  // Base UI renders the raw value unless the label is formatted here, which is
+  // why the trigger used to read "all-time" and "2026-W35".
+  const label = (value: unknown) =>
+    value === ALL
+      ? ALL_LABEL
+      : (weeks.find((w) => w.key === value)?.label ?? String(value ?? ""));
+
   return (
     <Select value={current} onValueChange={change}>
       <SelectTrigger className="w-56" data-testid="week-selector">
-        <SelectValue />
+        <SelectValue>{label}</SelectValue>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL}>All-time</SelectItem>
+        <SelectItem value={ALL}>{ALL_LABEL}</SelectItem>
         {weeks.map((w) => (
           <SelectItem key={w.key} value={w.key}>
             {w.label}

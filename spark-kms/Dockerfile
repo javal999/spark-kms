@@ -32,8 +32,16 @@ RUN npm run build
 # 3) Minimal runtime.
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
+# Cap the V8 heap BELOW the container's RAM (Lightsail power `small` = 1 GB,
+# see LIGHTSAIL-DEPLOY.md). Without this, Node sizes the heap from the cgroup
+# limit and a runaway request grows until the KERNEL SIGKILLs the container —
+# which produces no log line and no `error_events` row, so an admin sees an
+# upload "fail" with nothing to trace (D31). With an explicit cap, V8 aborts
+# first and prints "JavaScript heap out of memory" to the container log.
+# KEEP IN SYNC with the container power: ~75% of RAM.
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    NODE_OPTIONS=--max-old-space-size=768 \
     PORT=8080 \
     HOSTNAME=0.0.0.0
 RUN groupadd -r nodejs && useradd -r -g nodejs nextjs

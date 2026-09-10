@@ -139,5 +139,10 @@ infra; it rides the same container + DB.
 - **Rotate SESSION_SECRET**: change it in the deployment env → redeploy (logs
   everyone out). Rotate the **viewer password in-app** (Admin → Viewer password).
 - **Scale**: raise `--scale` or move to `medium` power (1 vCPU / 2 GB) if 1 GB
-  gets tight under load.
+  gets tight under load. **Changing power means changing the heap cap**: the
+  Dockerfile's runtime stage pins `NODE_OPTIONS=--max-old-space-size=768` at
+  ~75% of the `small` power's 1 GB (D31). Left at 768 on a `medium` container
+  the app simply never uses the extra GB; raised above the container's RAM, an
+  OOM becomes a silent kernel SIGKILL with no log line — which is exactly the
+  failure D31 fixed. Update it in the same commit as the power change.
 - **Cost**: container `small` $15/mo + DB `micro` $15/mo ≈ **$30/mo** flat.

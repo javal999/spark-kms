@@ -140,9 +140,21 @@ export async function parseWorkbook(buffer: Buffer): Promise<{
     if (name && !headerIndex.has(name)) headerIndex.set(name, col);
   });
 
-  const lastRow = sheet.rowCount;
+  // Bound the scan by the rows that ACTUALLY exist, not `sheet.rowCount`.
+  // exceljs reports rowCount as the sheet's max (1,048,576) for any file
+  // carrying formatting/validation on far-down rows — which real files exported
+  // from Excel/Sheets routinely do. Looping to that bound called `getRow()` a
+  // million times, and getRow() *materializes* the row on access: a 209-row
+  // upload peaked at 3.4 GB of heap and OOM-killed the container before the
+  // route's catch block could run, so nothing reached the error log (D31).
+  // `eachRow({includeEmpty:false})` walks only rows present in the model.
+  const dataRowNumbers: number[] = [];
   // Data starts at row 3 (row 1 = headers, row 2 = hints).
-  for (let r = 3; r <= lastRow; r++) {
+  sheet.eachRow({ includeEmpty: false }, (_row, n) => {
+    if (n >= 3) dataRowNumbers.push(n);
+  });
+
+  for (const r of dataRowNumbers) {
     const row = sheet.getRow(r);
     const raw: Record<string, string> = {};
     let hasAny = false;

@@ -10,7 +10,17 @@ export type UploadRow = Partial<Record<(typeof TEMPLATE_COLUMNS)[number], string
  */
 export async function buildUploadFile(
   rows: UploadRow[],
-  opts: { version?: string | null; includeMeta?: boolean } = {},
+  opts: {
+    version?: string | null;
+    includeMeta?: boolean;
+    /**
+     * Format a far-down row so exceljs reports `rowCount` as the sheet maximum
+     * (1,048,576) while the real data still ends at row 3+N — exactly the shape
+     * of a file exported from Excel/Sheets with whole-column formatting. Adds
+     * ~50 bytes to the file; used to pin the parse-bound regression (D31).
+     */
+    inflateRowCount?: boolean;
+  } = {},
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const en = wb.addWorksheet("Entries");
@@ -23,6 +33,10 @@ export async function buildUploadFile(
       if (v != null) row.getCell(c + 1).value = v as ExcelJS.CellValue;
     });
   });
+
+  // Touching a far row's height puts it in the row model without giving it any
+  // cell values, which is what pushes exceljs's `rowCount` to the sheet max.
+  if (opts.inflateRowCount) en.getRow(1_048_576).height = 15;
 
   if (opts.includeMeta !== false) {
     const meta = wb.addWorksheet("_meta", { state: "hidden" });

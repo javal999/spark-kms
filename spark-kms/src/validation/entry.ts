@@ -6,6 +6,7 @@ import {
   entryCategoryEnum,
   stageEnum,
 } from "@/src/db/schema";
+import { canonicalPillar, PILLAR_INPUT_VALUES } from "@/src/lib/enums";
 
 /**
  * Single validation pipeline shared by the Submit form API and the Excel row
@@ -20,7 +21,23 @@ import {
 
 export const regionSchema = z.enum(regionEnum.enumValues);
 export const segmentSchema = z.enum(segmentEnum.enumValues);
-export const pillarSchema = z.enum(pillarEnum.enumValues);
+/**
+ * D32: validates against the canonical pillars PLUS the legacy `CEE` spelling,
+ * then normalizes to what we store. This runs on every write path that reaches
+ * the schema — the submit form, `PATCH /api/initiatives/:id`,
+ * `POST /api/v1/initiatives`, the MCP create tool, and the bulk upload row —
+ * so no caller has to remember the alias.
+ *
+ * Deliberately an enum + transform rather than `z.preprocess`. The OpenAPI
+ * document is generated from these validators with `io: "input"`
+ * (`src/lib/openapi.ts`), and a preprocess erases the input type to `unknown`:
+ * `pillar` silently dropped out of the `required` list and lost its value list
+ * in the published contract. An enum keeps the field introspectable, so the
+ * spec states plainly which spellings the API accepts.
+ */
+export const pillarSchema = z
+  .enum(PILLAR_INPUT_VALUES)
+  .transform((v) => canonicalPillar(v) as (typeof pillarEnum.enumValues)[number]);
 export const categorySchema = z.enum(entryCategoryEnum.enumValues);
 export const stageSchema = z.enum(stageEnum.enumValues);
 

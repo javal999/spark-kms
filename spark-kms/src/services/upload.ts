@@ -4,7 +4,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/src/db";
 import { uploadBatches } from "@/src/db/schema";
 import { uploadRowSchema, type UploadRowInput, type NewInitiativeInput } from "@/src/validation/entry";
-import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums";
+import {
+  REGIONS,
+  SEGMENTS,
+  PILLARS,
+  CATEGORIES,
+  STAGES,
+  LEGACY_PILLAR_SPELLINGS,
+} from "@/src/lib/enums";
 import { TEMPLATE_COLUMNS, getTemplateVersion } from "@/src/services/template";
 import {
   findDuplicateCandidates,
@@ -55,6 +62,12 @@ function normEnum(
 }
 
 const SEGMENT_ALIASES = { ALL: "All", "Teens & ES": "Teen & ES" };
+
+// D32 renamed the pillar from the "CEE" abbreviation to its full name. The
+// upload normalizer reads the SHARED alias table rather than keeping its own,
+// so the spelling a partner may send to the API and the spelling an admin may
+// upload in a sheet can never diverge.
+const PILLAR_ALIASES = LEGACY_PILLAR_SPELLINGS;
 
 function parseCellDate(value: ExcelJS.CellValue): string | undefined {
   if (value == null || value === "") return undefined;
@@ -195,7 +208,7 @@ function buildRow(
 
   const region = normEnum(raw["Region"], REGIONS);
   const segment = normEnum(raw["Segment"], SEGMENTS, SEGMENT_ALIASES);
-  const pillar = normEnum(raw["Pillar"], PILLARS);
+  const pillar = normEnum(raw["Pillar"], PILLARS, PILLAR_ALIASES);
   const category = normEnum(raw["Category"], CATEGORIES);
   const stageRaw = raw["Stage"].trim();
   const stage = stageRaw ? normEnum(stageRaw, STAGES) : { value: "Idea" };

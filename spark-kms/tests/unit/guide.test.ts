@@ -22,6 +22,7 @@ import {
   t,
   type GuideKey,
 } from "@/src/content/guide-copy";
+import { MCP_GUIDE_HTML } from "@/src/lib/mcp-guide-html";
 
 /**
  * Drift guard for the /guide page ("How SPARK works").
@@ -81,7 +82,7 @@ describe("guide page: dropdown lists are unchanged", () => {
         "Relevant Beauty Lifestyle",
         "Activated New Touchpoint",
         "Key Territory Execution",
-        "CEE",
+        "Core Excellence Execution",
       ],
     ],
     ["category", CATEGORIES, ["Best Practice", "Unlocking"]],
@@ -229,5 +230,30 @@ describe("guide page: the language toggle is wired up", () => {
 
   it("takes its prose from the copy module rather than inline strings", () => {
     expect(guideSource).toContain("@/src/content/guide-copy");
+  });
+});
+
+/**
+ * The partner-facing MCP guide lists what the API accepts. It was hand-written
+ * and had drifted from the enums twice (missing Sulawesi, missing the sixth
+ * pillar) before D32 made it render from the constants. Pin it so it cannot
+ * drift again — this is the same guarantee D26 gave `/guide`.
+ */
+describe("MCP integration guide: allowed values match the enums", () => {
+  it.each([
+    ["region", REGIONS],
+    ["segment", SEGMENTS],
+    ["pillar", PILLARS],
+    ["category", CATEGORIES],
+    ["stage", STAGES],
+  ])("%s", (_name, values) => {
+    for (const v of values) {
+      expect(MCP_GUIDE_HTML).toContain(`<code>${v.replace(/&/g, "&amp;")}</code>`);
+    }
+  });
+
+  it("no longer advertises the retired CEE abbreviation", () => {
+    expect(MCP_GUIDE_HTML).toContain("<code>Core Excellence Execution</code>");
+    expect(MCP_GUIDE_HTML).not.toContain("<code>CEE</code>");
   });
 });

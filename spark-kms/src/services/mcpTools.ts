@@ -16,6 +16,7 @@ import {
   opTopInitiatives,
   type ApiContext,
 } from "@/src/services/apiOps";
+import { canonicalPillar, PILLAR_INPUT_VALUES } from "@/src/lib/enums";
 
 /**
  * The 7 MCP tools (requirements 14, REQ-X6), defined once as data so both the
@@ -30,7 +31,13 @@ import {
 
 const zRegion = z.enum(regionEnum.enumValues);
 const zSegment = z.enum(segmentEnum.enumValues);
-const zPillar = z.enum(pillarEnum.enumValues);
+// D32: MCP clients (and the prompts driving them) still say "CEE". Accept it
+// and resolve to the stored name, exactly as the REST filter and every write
+// path do; a strict z.enum here would reject the legacy value at the tool
+// boundary before it ever reached the shared filter.
+const zPillar = z
+  .enum(PILLAR_INPUT_VALUES)
+  .transform((v) => canonicalPillar(v) as (typeof pillarEnum.enumValues)[number]);
 const zStage = z.enum(stageEnum.enumValues);
 const zCategory = z.enum(entryCategoryEnum.enumValues);
 const zIsoDate = z

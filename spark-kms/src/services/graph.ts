@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { initiatives, people, tags, initiativeTags, initiativeLinks } from "@/src/db/schema";
+import { canonicalPillars } from "@/src/lib/enums";
 
 /**
  * Multi-entity knowledge-graph projection (Phase 8, task E4). Generalizes the
@@ -45,7 +46,10 @@ export async function buildEntityGraph(
   const conds = [isNull(initiatives.archivedAt)]; // archived initiatives excluded from the entity graph
   if (filter?.region?.length) conds.push(inArray(initiatives.region, filter.region as never[]));
   if (filter?.segment?.length) conds.push(inArray(initiatives.segment, filter.segment as never[]));
-  if (filter?.pillar?.length) conds.push(inArray(initiatives.pillar, filter.pillar as never[]));
+  // D32: same legacy-`CEE` tolerance as listInitiatives — graph explorer filter
+  // links with `?pillar=CEE` are already in circulation.
+  if (filter?.pillar?.length)
+    conds.push(inArray(initiatives.pillar, canonicalPillars(filter.pillar) as never[]));
 
   const inis = await db
     .select({

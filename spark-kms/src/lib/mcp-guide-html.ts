@@ -3,7 +3,19 @@
  * served at GET /mcp-guide (not linked in the app nav; direct-link only).
  * Self-contained (inline CSS, system + monospace fonts) so it needs no assets
  * and no auth. Keep in sync with docs/MCP-INTEGRATION.md.
+ *
+ * The "Allowed values" block renders from the enum constants rather than
+ * repeating them. It was hand-written and had already drifted twice — it was
+ * missing Sulawesi (D22) and the sixth pillar (D10) — which is the exact
+ * failure D26 introduced `/guide` to prevent, on the one page partner teams
+ * read to learn what the API accepts.
  */
+import { REGIONS, SEGMENTS, PILLARS, CATEGORIES, STAGES } from "@/src/lib/enums";
+
+const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const codes = (vals: readonly string[]) =>
+  vals.map((v) => `<code>${esc(v)}</code>`).join("");
+
 export const MCP_GUIDE_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -205,11 +217,11 @@ curl -sN https://kms.paracorplabs.com/api/mcp \\
 
         <h3>Allowed values</h3>
         <div class="enums">
-          <div class="er"><span class="ek">region</span><span class="ev"><code>Jakarta Greater</code><code>Kalimantan</code><code>Sumatera</code><code>CJWJ</code><code>EJBN</code></span></div>
-          <div class="er"><span class="ek">segment</span><span class="ev"><code>Halal PC</code><code>Teen &amp; ES</code><code>Masstige</code><code>All</code></span></div>
-          <div class="er"><span class="ek">pillar</span><span class="ev"><code>Social Buzz</code><code>Personalized CRM</code><code>Relevant Beauty Lifestyle</code><code>Activated New Touchpoint</code><code>Key Territory Execution</code></span></div>
-          <div class="er"><span class="ek">stage</span><span class="ev"><code>Idea</code><code>Pilot</code><code>Running</code><code>Ready to Scale</code></span></div>
-          <div class="er"><span class="ek">category</span><span class="ev"><code>Best Practice</code><code>Unlocking</code></span></div>
+          <div class="er"><span class="ek">region</span><span class="ev">${codes(REGIONS)}</span></div>
+          <div class="er"><span class="ek">segment</span><span class="ev">${codes(SEGMENTS)}</span></div>
+          <div class="er"><span class="ek">pillar</span><span class="ev">${codes(PILLARS)}</span></div>
+          <div class="er"><span class="ek">stage</span><span class="ev">${codes(STAGES)}</span></div>
+          <div class="er"><span class="ek">category</span><span class="ev">${codes(CATEGORIES)}</span></div>
           <div class="er"><span class="ek">week</span><span class="ev">ISO week key like <code>2026-W27</code> (Monday-based, Asia/Jakarta). Omit for all-time.</span></div>
         </div>
       </div>

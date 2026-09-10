@@ -99,12 +99,21 @@ Read tools work with any key; write tools require a `write` key.
 
 ### Common parameters & allowed values
 
-- **region:** `Jakarta Greater`, `Kalimantan`, `Sumatera`, `CJWJ`, `EJBN`
+- **region:** `Jakarta Greater`, `Kalimantan`, `Sumatera`, `CJWJ`, `EJBN`, `Sulawesi`
 - **segment:** `Halal PC`, `Teen & ES`, `Masstige`, `All`
-- **pillar:** `Social Buzz`, `Personalized CRM`, `Relevant Beauty Lifestyle`, `Activated New Touchpoint`, `Key Territory Execution`
+- **pillar:** `Social Buzz`, `Personalized CRM`, `Relevant Beauty Lifestyle`, `Activated New Touchpoint`, `Key Territory Execution`, `Core Excellence Execution`
+  - `CEE` is still accepted wherever a pillar is sent — filters, create bodies,
+    MCP arguments — and resolves to `Core Excellence Execution` (D32). It was
+    the stored value until 2026-09-10. **Responses always return the full
+    name**, so match on that rather than on the abbreviation.
 - **stage:** `Idea`, `Pilot`, `Running`, `Ready to Scale`
 - **category:** `Best Practice`, `Unlocking`
 - **week:** ISO week key like `2026-W27` (Monday-based, Asia/Jakarta). Omit for all-time.
+
+> This list was hand-maintained and had drifted (it was missing Sulawesi and the
+> sixth pillar). The live page at `/mcp-guide` now renders these values from the
+> enum constants and is pinned by a test; treat it as authoritative if the two
+> ever disagree again.
 
 ### `search_initiatives` arguments
 

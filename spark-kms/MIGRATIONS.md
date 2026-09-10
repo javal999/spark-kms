@@ -19,6 +19,7 @@ data, then apply and fill in the row below in the same session.
 | 0012 | `0012_melted_monster_badoon` | `Sulawesi` region (D22) | not recorded | not recorded | n/a | — |
 | — | *(no schema change)* | D23 stream reallocation | 2026-08-18 | `spark-kms-pre-d23-20260818-094748` | integration test `reallocate-streams.test` + local test DB (304 gates green); snapshot is the rollback | `run-reallocate-streams.ts` — **moved 84**, skipped 0 |
 | — | *(no schema change)* | D25 Best Presenter removal | 2026-08-18 | `spark-kms-pre-d23-20260818-094748` (same batch) | integration test `remove-best-presenter.test` + local test DB | `run-reverse-best-presenter.ts` — **reversed 3** |
+| 0013 | `0013_quiet_starjammers` | D32: pillar enum value `CEE` → `Core Excellence Execution` | **not yet applied** | **required before applying** | verified on the local test db inside a transaction that was rolled back: a pre-existing `'CEE'` row read back as `'Core Excellence Execution'` after the rename, a second run was a no-op (idempotent), and the drizzle-generated drop-and-recreate alternative failed on the same starting state | **none — and none is needed.** `ALTER TYPE ... RENAME VALUE` relabels the value in place, so every existing row moves with it atomically. There is no separate backfill to run and nothing to reconcile afterwards. |
 
 ### 2026-08-18 — D23 + D25 applied (image v25)
 

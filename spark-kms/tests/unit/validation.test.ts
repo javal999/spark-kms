@@ -103,11 +103,32 @@ describe("initiativeInputSchema", () => {
     ).toBe(false);
   });
 
-  it("rejects an off-enum pillar (e.g. Core Excellence Execution)", () => {
+  it("accepts the CEE pillar under its full name (D32)", () => {
     expect(
       initiativeInputSchema.safeParse({
         ...validInitiative,
         pillar: "Core Excellence Execution",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts the legacy CEE spelling and normalizes it to the stored name (D32)", () => {
+    // The abbreviation stays valid INPUT — templates, partner API calls and
+    // shared filter links all still use it — but it must never survive as a
+    // stored value, or the rename would have achieved nothing.
+    const parsed = initiativeInputSchema.safeParse({
+      ...validInitiative,
+      pillar: "CEE",
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.pillar).toBe("Core Excellence Execution");
+  });
+
+  it("rejects an off-enum pillar", () => {
+    expect(
+      initiativeInputSchema.safeParse({
+        ...validInitiative,
+        pillar: "Radical Synergy",
       }).success,
     ).toBe(false);
   });

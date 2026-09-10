@@ -40,14 +40,32 @@ describe("normalizer (REQ-U8)", () => {
     expect(rows[1].data?.pillar).toBe("Social Buzz");
   });
 
-  it("fails off-enum values with a clear per-row error (Papua, Core Excellence Execution)", async () => {
+  it("fails off-enum values with a clear per-row error (Papua)", async () => {
     const buf = await buildUploadFile([
       validRow({ Region: "Papua" }),
-      validRow({ Pillar: "Core Excellence Execution" }),
+      validRow({ Pillar: "Radical Synergy" }),
     ]);
     const { rows } = await parseWorkbook(buf);
     expect(rows[0].errors.join()).toMatch(/Papua.*not a valid region/i);
-    expect(rows[1].errors.join()).toMatch(/Core Excellence Execution.*not a valid pillar/i);
+    expect(rows[1].errors.join()).toMatch(/Radical Synergy.*not a valid pillar/i);
+  });
+
+  it("imports the CEE pillar under its full name, and still accepts 'CEE' (D32)", async () => {
+    // The rename is what the regions were already typing; the abbreviation has
+    // to keep working because every template in circulation puts it in the
+    // Pillar dropdown. Both spellings must land on the SAME stored value.
+    const buf = await buildUploadFile([
+      validRow({ Pillar: "Core Excellence Execution" }),
+      validRow({ Pillar: "CEE" }),
+      validRow({ Pillar: "  cee  " }),
+    ]);
+    const { rows } = await parseWorkbook(buf);
+    expect(rows.map((r) => r.errors)).toEqual([[], [], []]);
+    expect(rows.map((r) => r.data?.pillar)).toEqual([
+      "Core Excellence Execution",
+      "Core Excellence Execution",
+      "Core Excellence Execution",
+    ]);
   });
 });
 

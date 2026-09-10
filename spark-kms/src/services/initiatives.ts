@@ -14,6 +14,7 @@ import { award } from "@/src/services/scoring";
 import { splitFollowUp } from "@/src/lib/follow-up";
 import { upsertByName } from "@/src/services/people";
 import { addInitiativeTags } from "@/src/services/tags";
+import { canonicalPillars } from "@/src/lib/enums";
 
 /**
  * Initiative + entry CRUD (Phase 1). NOTE: scoring is Phase 2 — nothing here
@@ -403,8 +404,14 @@ export async function listInitiatives(
     conds.push(inArray(initiatives.region, filters.region as never));
   if (filters.segment?.length)
     conds.push(inArray(initiatives.segment, filters.segment as never));
+  // D32: `?pillar=CEE` from a partner integration or an already-shared filter
+  // link must keep working. Without this the legacy value reaches Postgres as a
+  // literal against an enum column and the request 500s
+  // (`invalid input value for enum pillar: "CEE"`) rather than filtering.
   if (filters.pillar?.length)
-    conds.push(inArray(initiatives.pillar, filters.pillar as never));
+    conds.push(
+      inArray(initiatives.pillar, canonicalPillars(filters.pillar) as never),
+    );
   if (filters.stage?.length)
     conds.push(inArray(initiatives.stage, filters.stage as never));
 

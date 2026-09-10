@@ -46,7 +46,9 @@ export const pillarEnum = pgEnum("pillar", [
   "Relevant Beauty Lifestyle",
   "Activated New Touchpoint",
   "Key Territory Execution",
-  "CEE", // v1.2 (D10): CEE is now a pillar, not a score stream.
+  // v1.2 (D10): CEE is now a pillar, not a score stream. Renamed from the
+  // "CEE" abbreviation to the full name in D32 (migration 0013).
+  "Core Excellence Execution",
 ]);
 
 export const entryCategoryEnum = pgEnum("entry_category", [

@@ -25,9 +25,10 @@ from the container), `SESSION_SECRET`, `NODE_ENV=production`. Container listens 
 `8080`; `CMD` forces `HOSTNAME=0.0.0.0`.
 
 ## Prereqs on the operator's Mac
-AWS CLI (configured), Colima + Docker + buildx, `lightsailctl` (`brew install
-aws/tap/lightsailctl`). `lightsailctl` needs the Colima socket:
-`export DOCKER_HOST=$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')`.
+AWS CLI with an MFA session: `Enforce-MFA-Policy` denies every Lightsail call, reads included, to the plain access key. Start one per terminal tab (lasts 12 h):
+`eval "$(aws sts get-session-token --serial-number arn:aws:iam::756286194006:mfa/levi-phone-google --token-code <code> --duration-seconds 43200 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text | awk '{print "export AWS_ACCESS_KEY_ID="$1" AWS_SECRET_ACCESS_KEY="$2" AWS_SESSION_TOKEN="$3}')"`
+Colima + Docker + buildx, `lightsailctl` (`brew install aws/tap/lightsailctl`); it needs `export DOCKER_HOST=$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')`.
+**Every `create-container-service-deployment` and `get-container-service*` call gets a `--query`.** Their replies carry all 13 environment values; a bare call leaked them on 2026-09-11 and forced a full rotation.
 
 ## Redeploy a new version of the app
 **The `--build-arg` flags are not optional.** `NEXT_PUBLIC_*` are inlined into

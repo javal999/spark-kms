@@ -25,4 +25,4 @@ Project: internal web app replacing the SPARK WEEKLY UPDATE spreadsheet. Initiat
 
 ## Definition of done
 
-All four gates green (`npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`), the requirements doc matching the shipped behavior, plus a short note to Levi: what shipped, what's next, any requirement ambiguity found.
+All four gates green (`npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`), the requirements doc matching the shipped behavior, plus a short note to Levi: what shipped, what's next, any requirement ambiguity found. After a deploy, "it works" needs the user's path exercised on the live site — for a redirect, `curl -s -o /dev/null -D - https://kms.paracorplabs.com/<route>` and read `Location` — not only the component that changed.

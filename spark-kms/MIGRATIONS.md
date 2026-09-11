@@ -19,7 +19,7 @@ data, then apply and fill in the row below in the same session.
 | 0012 | `0012_melted_monster_badoon` | `Sulawesi` region (D22) | not recorded | not recorded | n/a | — |
 | — | *(no schema change)* | D23 stream reallocation | 2026-08-18 | `spark-kms-pre-d23-20260818-094748` | integration test `reallocate-streams.test` + local test DB (304 gates green); snapshot is the rollback | `run-reallocate-streams.ts` — **moved 84**, skipped 0 |
 | — | *(no schema change)* | D25 Best Presenter removal | 2026-08-18 | `spark-kms-pre-d23-20260818-094748` (same batch) | integration test `remove-best-presenter.test` + local test DB | `run-reverse-best-presenter.ts` — **reversed 3** |
-| 0013 | `0013_quiet_starjammers` | D32: pillar enum value `CEE` → `Core Excellence Execution` | **not yet applied** | **required before applying** | verified on the local test db inside a transaction that was rolled back: a pre-existing `'CEE'` row read back as `'Core Excellence Execution'` after the rename, a second run was a no-op (idempotent), and the drizzle-generated drop-and-recreate alternative failed on the same starting state | **none — and none is needed.** `ALTER TYPE ... RENAME VALUE` relabels the value in place, so every existing row moves with it atomically. There is no separate backfill to run and nothing to reconcile afterwards. |
+| 0013 | `0013_quiet_starjammers` | D32: pillar enum value `CEE` → `Core Excellence Execution` | 2026-09-11, with deployment 32 (`:spark-kms.app.28`) | `spark-kms-pre-d32-20260911-102021`, confirmed `available` at 10:25 WIB before any write | verified locally first (transaction-rollback trial on the test db, then applied to dev and test); on prod **84 initiatives before and after, 5 relabelled `CEE` → `Core Excellence Execution`**, and the enum lists no `CEE` | **none — and none is needed.** `ALTER TYPE ... RENAME VALUE` relabels the value in place, so every existing row moves with it atomically. There is no separate backfill to run and nothing to reconcile afterwards. |
 
 ### 2026-08-18 — D23 + D25 applied (image v25)
 
@@ -31,6 +31,20 @@ Snapshot `spark-kms-pre-d23-20260818-094748` taken and confirmed `available` bef
 | Contribution (`presenter`) | 3 | 84 (= 84 initiatives × 1) |
 
 Live `best_presenter` points after reversal: **0**. Area totals unchanged (Total = both streams); only the split moved. `template_version` bumped to v1.3 in the same window. Both scripts append reversals through `scoring.reverse()` — no row deleted (REQ-S2).
+
+### 2026-09-11 — D31 + D32 applied (image `app.28`, deployment 32)
+
+Snapshot `spark-kms-pre-d32-20260911-102021` taken and confirmed `available` (10:25 WIB) before any write. Image `:spark-kms.app.28` (digest `sha256:d295d3bf…87fa`, built from `509ac71`) was preflighted locally — SSO button present, `NODE_OPTIONS=--max-old-space-size=768` baked in — and pushed *before* the migration, so old code ran against the renamed enum only for the time it took to create the deployment. The database was public for the migration alone (10:27–10:31) and closed before the deploy. New code confirmed serving on `kms.paracorplabs.com` via `/mcp-guide`.
+
+| Pillar | Before | After |
+|---|---|---|
+| Activated New Touchpoint | 30 | 30 |
+| Relevant Beauty Lifestyle | 28 | 28 |
+| Personalized CRM | 21 | 21 |
+| `CEE` → Core Excellence Execution | 5 | 5 |
+| **Total** | **84** | **84** |
+
+Rollback target: deployment 31, `:spark-kms.app.27`. The rename itself reverses with one `ALTER TYPE ... RENAME VALUE`; the snapshot is the backstop.
 
 ## Backfill gaps
 

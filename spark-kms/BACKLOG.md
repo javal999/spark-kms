@@ -15,6 +15,9 @@ tested, and live in production. These are "add when a real need shows up."
   1. **Is `CRON_SECRET` on the deployment?** Without it the endpoint fails closed
      (401). Confirmed present on live deployment 31 (2026-08-24), so this is
      probably not the cause — but verify it survived any later redeploy.
+     **Rotated on 2026-09-11 (deployment 33)** after the old value was exposed;
+     the GitLab CI/CD variable has to hold the new value, so if the schedule
+     now returns 401, check that variable first.
   2. **Does a manual call work?** `curl -fsS -X POST -H "Authorization: Bearer
      <CRON_SECRET>" https://kms.paracorplabs.com/api/cron/retention` — expect
      `{"ok":true,"purged":<n>}`. A **401** means the bearer the scheduler sends

@@ -44,7 +44,15 @@ Snapshot `spark-kms-pre-d32-20260911-102021` taken and confirmed `available` (10
 | `CEE` → Core Excellence Execution | 5 | 5 |
 | **Total** | **84** | **84** |
 
-Rollback target: deployment 31, `:spark-kms.app.27`. The rename itself reverses with one `ALTER TYPE ... RENAME VALUE`; the snapshot is the backstop.
+Rollback image: `:spark-kms.app.27` — but run it with deployment 33's environment, not by redeploying 31 (see the next entry). The rename itself reverses with one `ALTER TYPE ... RENAME VALUE`; the snapshot is the backstop.
+
+### 2026-09-11 — deployment 33: Azure secret restored, exposed secrets rotated (no schema change)
+
+Not a migration. Recorded here because it changes what a rollback can safely use.
+
+- **SSO had been broken since deployment 31.** Its `AZURE_CLIENT_SECRET` was the literal placeholder `<the same value from your .env>`, set when deployment 31 was created on 2026-08-24, and deployment 32 copied it. Every Microsoft sign-in failed at the token exchange (`AADSTS7000215` in the `/admin` error log, seen from at least 2026-09-08). Deployment 33 carries the real value, checked against Microsoft's token endpoint before deploying.
+- **`SESSION_SECRET`, `CRON_SECRET`, `OPENROUTER_API_KEY` and the DB master password were replaced** after the D32 deploy printed the live environment to a terminal. DB password changed 11:05–11:06 WIB; deployment 33 live at 11:09 WIB on `:spark-kms.app.28`. Everyone was logged out once by the new `SESSION_SECRET`.
+- **Rollback: deployments 31 and 32 hold the retired DB password. Do not redeploy them as they are** — the app would lose its database. To run an older image, build from the live deployment and change only the image; the method under `LIGHTSAIL-DEPLOY.md` → Rollback already does this.
 
 ## Backfill gaps
 

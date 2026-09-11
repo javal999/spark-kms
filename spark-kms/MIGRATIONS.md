@@ -54,6 +54,10 @@ Not a migration. Recorded here because it changes what a rollback can safely use
 - **`SESSION_SECRET`, `CRON_SECRET`, `OPENROUTER_API_KEY` and the DB master password were replaced** after the D32 deploy printed the live environment to a terminal. DB password changed 11:05–11:06 WIB; deployment 33 live at 11:09 WIB on `:spark-kms.app.28`. Everyone was logged out once by the new `SESSION_SECRET`.
 - **Rollback: deployments 31 and 32 hold the retired DB password. Do not redeploy them as they are** — the app would lose its database. To run an older image, build from the live deployment and change only the image; the method under `LIGHTSAIL-DEPLOY.md` → Rollback already does this.
 
+### 2026-09-11 — deployment 34: SSO redirects fixed (no schema or env change)
+
+The first successful Microsoft sign-in on deployment 33 was redirected to `https://0.0.0.0:8080/`: in the standalone build a route handler's `req.url` carries the container's bind address, so every API redirect built from it pointed at the container (TRD-2026-009 E17). Deployment 34 (`:spark-kms.app.29`, digest `sha256:2e42a99e…3cfe`, built from `131bcd2`) sends relative redirects instead. Live from 14:08 WIB; verified on the public site — `/api/auth/logout` → `/login`, `/api/auth/sso/callback` → `/login?e=sso`. Environment copied unchanged from 33, so no logout and no database change. Rollback target: deployment 33 (same environment).
+
 ## Backfill gaps
 
 Rows above say "not recorded" because the evidence was never written down, not

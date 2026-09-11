@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sealData } from "iron-session";
 import { flags } from "@/src/lib/flags";
+import { relativeRedirect } from "@/src/lib/redirect";
 import {
   ssoConfig,
   discover,
@@ -18,7 +19,7 @@ const FLOW_TTL = 600; // 10 min to complete sign-in
 
 /** GET /api/auth/sso/start — begin the Entra auth-code+PKCE flow. */
 export async function GET(req: NextRequest) {
-  if (!flags.sso) return NextResponse.redirect(new URL("/login", req.url));
+  if (!flags.sso) return relativeRedirect("/login");
 
   const cfg = ssoConfig(); // throws SsoConfigError if env missing
   const disc = await discover(cfg);

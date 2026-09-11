@@ -142,6 +142,7 @@ Admin → **Access** panel (evolves the current PIC/People pattern): list author
 | E14 | **Rate-limit / abuse** on callback | Reuse the existing IP limiter on the callback + password paths. |
 | E15 | **Logout** | Clears the local session cookie only; user stays signed into M365 (can re-SSO instantly). Front-channel Entra logout is out of scope (Non-goals). |
 | E16 | Break-glass **credential hygiene** | Strong unique password, not tied to a person, use logged, rotated periodically. |
+| E17 | **Redirect origin behind the proxy** *(found 2026-09-11)* | Every redirect an API route sends is **relative** (`Location: /login?e=sso`) via `relativeRedirect()` in `src/lib/redirect.ts`; the browser resolves it against the public host it is already on. Never `new URL(path, req.url)`: in the standalone build a route handler's `req.url` carries the bind address `0.0.0.0:8080`, not the forwarded host, so the first successful prod sign-in was sent to `https://0.0.0.0:8080/`. It went unseen while sign-ins failed earlier on a placeholder client secret (deployments 31–32). Page redirects in `proxy.ts` are unaffected — middleware's `nextUrl` carries the forwarded host. `tests/unit/sso-redirects.test.ts` fails if any `app/api` route builds a redirect from `req.url`. |
 
 ## 10. Environments & cutover `[A]`
 

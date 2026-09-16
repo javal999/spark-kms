@@ -179,3 +179,30 @@ describe("API routes redirect only through relativeRedirect()", () => {
     expect(src).not.toMatch(/headers\.set\(\s*["\']Location["\']/i);
   });
 });
+
+describe("Next's redirect normalization must stay on (FV-5)", () => {
+  /**
+   * `proxy.ts` builds an ABSOLUTE redirect from `req.nextUrl`, so driven directly
+   * it emits `http://0.0.0.0:8080/login?next=…` — the same defect E17 fixed in
+   * the API routes. Production is correct only because Next strips the origin
+   * from a same-origin redirect (`getRelativeURL()` in `server/web/adapter.js`
+   * and `server/lib/router-utils/resolve-routes.js`).
+   *
+   * That rewrite is gated on `__NEXT_NO_MIDDLEWARE_URL_NORMALIZE`, which the
+   * documented `skipProxyUrlNormalize` option sets. Turning it on would send
+   * every gated page redirect to the container address — the whole page auth
+   * perimeter, not just SSO. Emitting a relative Location from proxy.ts is not
+   * the fix: adapter.js re-parses the header with `new NextURL(location)`, which
+   * throws on a relative input. So guard the flag instead. See BACKLOG.md FV-5.
+   */
+  it("next.config.ts does not skip proxy URL normalization", async () => {
+    const cfg = ((await import("@/next.config")).default ?? {}) as Record<string, unknown>;
+    expect(cfg.skipProxyUrlNormalize).toBeFalsy();
+    expect(cfg.skipMiddlewareUrlNormalize).toBeFalsy(); // the deprecated spelling
+  });
+
+  it("the deploy image does not set the internal flag either", () => {
+    const dockerfile = readFileSync(path.join(process.cwd(), "Dockerfile"), "utf8");
+    expect(dockerfile).not.toMatch(/__NEXT_NO_MIDDLEWARE_URL_NORMALIZE/);
+  });
+});

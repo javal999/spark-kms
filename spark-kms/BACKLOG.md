@@ -60,7 +60,7 @@ is reverted. These are the gaps the bypass review left open.
   behavior that isn't what the server does. Correct the wording so the next
   person debugging a redirect isn't working from a wrong model.
 
-- [ ] **FV-5 — `proxy.ts` is correct only because Next rewrites its redirect.**
+- [x] **FV-5 — `proxy.ts` is correct only because Next rewrites its redirect.**
   Found while correcting FV-2, then traced to the exact mechanism.
 
   **What the code does.** `proxy.ts` builds an absolute URL from
@@ -81,7 +81,7 @@ is reverted. These are the gaps the bypass review left open.
   legitimate thing to do for `_next/data` path handling — switches the rewrite
   off and reproduces the E17 outage on **every gated page redirect**, i.e. the
   whole auth perimeter, not just SSO. The flag is not set today (`next.config.ts`
-  is clean) and nothing fails if someone sets it.
+  is clean). *Now guarded — see Option B.*
 
   **Option A — make `proxy.ts` emit a relative `Location` itself. Ruled out.**
   `adapter.js` re-parses the header with `new NextURL(location, …)` before
@@ -90,7 +90,7 @@ is reverted. These are the gaps the bypass review left open.
   plain object, and no headers). There is no `try`/`catch` around it, so this
   would most likely 500 every gated navigation. Do not do this.
 
-  **Option B — remove the trigger instead of the dependency. Recommended.**
+  **Option B — remove the trigger instead of the dependency. DONE 2026-09-16.**
   Assert in a test that `next.config.ts` sets neither `skipProxyUrlNormalize`
   nor the deprecated `skipMiddlewareUrlNormalize`, with a comment in
   `next.config.ts` pointing at E17. ~10 lines, no runtime change, no deploy

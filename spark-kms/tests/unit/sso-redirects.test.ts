@@ -14,8 +14,10 @@ import { NextRequest } from "next/server";
  * failed earlier on a placeholder client secret; the first successful sign-in
  * after deployment 33 landed on ERR_CONNECTION_REFUSED.
  *
- * Page redirects in proxy.ts are unaffected — middleware's nextUrl carries the
- * forwarded host — which is why only the /api routes broke.
+ * Page redirects in proxy.ts are unaffected in production — verified at the wire
+ * (2026-09-16), though not by anything proxy.ts itself enforces: driven directly
+ * it emits `http://0.0.0.0:8080/login?next=…` too, and Next normalizes it to a
+ * relative Location on the way out. See BACKLOG.md FV-5.
  */
 
 // The internal address a route handler sees in production.

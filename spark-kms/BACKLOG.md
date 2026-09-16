@@ -31,6 +31,68 @@ tested, and live in production. These are "add when a real need shows up."
      "runs" but purges nothing. Check the schedule's last pipeline for the curl
      job's exit code and output.
 
+## SSO redirect hardening (fix-verification of 131bcd2, 2026-09-16)
+
+Gate review of the E17 relative-redirect fix. The fix itself holds — verified
+live: `GET /api/auth/logout` → `location: /login`, callback → `location:
+/login?e=sso`, all four gates green, and the test genuinely fails when the fix
+is reverted. These are the gaps the bypass review left open.
+
+- [x] **FV-1 — the regression guard covers one syntax, not the defect class.**
+  `tests/unit/sso-redirects.test.ts` scans route files for
+  `new URL(…, req.url)`. Four other spellings of the same bug pass it:
+  `req.nextUrl.clone()`, `new URL(req.url).origin + "/login"`, an aliased
+  `const b = req.url`, and a bare `NextResponse.redirect(req.url)`. The fix
+  converted every call site that exists today, so nothing is broken now — this
+  is about the guard holding for the next author. Replace the syntax match with
+  the rule the TRD actually states: no route under `app/api` may call
+  `NextResponse.redirect` or set a `Location` header itself; redirects go
+  through `relativeRedirect()`. One allow-listed exception: the Entra authorize
+  URL in `app/api/auth/sso/start/route.ts`, which is an intentional absolute
+  external redirect.
+
+- [x] **FV-2 — E17's stated mechanism does not match production.** The TRD
+  (`docs/trd-m365-sso-auth.md` E17) and the test file's header both explain
+  middleware being unaffected as "nextUrl carries the forwarded host", which
+  implies an absolute `Location` with the right host. Live, a middleware
+  redirect returns `location: /login?next=%2Finitiatives` — relative. The
+  conclusion is right and `proxy.ts` needs no change; the explanation describes
+  behavior that isn't what the server does. Correct the wording so the next
+  person debugging a redirect isn't working from a wrong model.
+
+- [ ] **FV-5 — `proxy.ts` relies on Next normalizing its redirect, not on its own
+  code.** Found while correcting FV-2. The middleware builds an absolute URL
+  (`req.nextUrl.clone()` → `NextResponse.redirect`), which is the same shape as
+  the E17 defect. Driven directly with an internal-origin request it emits
+  `http://0.0.0.0:8080/login?next=%2Finitiatives`. Production is fine — the wire
+  response is relative (checked live 2026-09-16) — because Next normalizes a
+  same-origin middleware redirect, runtime behavior no test here pins and that a
+  Next upgrade could change. `npm test` cannot see it (the unit layer shows the
+  absolute URL), CI runs no test job on push, and the only thing that would
+  catch a regression is `npm run test:e2e` or a manual `curl -D -`, both run by
+  hand. Not fixed drive-by on purpose: making middleware emit a relative
+  `Location` means hand-building the response instead of `NextResponse.redirect`,
+  and this is the auth perimeter of a live system — a wrong guess either locks
+  everyone out or lets unauthenticated users through. Worth doing as its own
+  deliberate change, with the live `curl` check in the DoD, not bundled with
+  anything else.
+
+- [ ] **FV-3 — `relativeRedirect` appends its query inside a fragment.**
+  `src/lib/redirect.ts` builds the `Location` by string concat, so
+  `relativeRedirect("/x#frag", { e: "sso" })` yields `/x#frag?e=sso` — the
+  query lands in the fragment and the server never sees it. Unreachable today
+  (the only caller passing params passes the literal `/login`), but
+  `sanitizeNext` does permit `#`, so a future `next=/initiatives#tab` plus a
+  param would hit it. Split the fragment off before appending.
+
+- [ ] **FV-4 — stale duplicated files in `.next/types` break the `tsc` gate.**
+  `npx tsc --noEmit` failed with duplicate-identifier errors from
+  `cache-life.d 2.ts`, `routes.d 2.ts` and `validator 2.ts` — Finder/iCloud
+  copies inside generated output, nothing to do with any source change. A fresh
+  build does not recreate them, so deleting is safe, but the DoD's typecheck
+  gate fails on any machine that has them and the error looks like a real type
+  error. Make the gate immune rather than relying on remembering to clean.
+
 ## Integration API & MCP (Phase 5) — hardening
 
 - [ ] **Per-key audit granularity.** API writes are attributed to the key's

@@ -60,22 +60,53 @@ is reverted. These are the gaps the bypass review left open.
   behavior that isn't what the server does. Correct the wording so the next
   person debugging a redirect isn't working from a wrong model.
 
-- [ ] **FV-5 — `proxy.ts` relies on Next normalizing its redirect, not on its own
-  code.** Found while correcting FV-2. The middleware builds an absolute URL
-  (`req.nextUrl.clone()` → `NextResponse.redirect`), which is the same shape as
-  the E17 defect. Driven directly with an internal-origin request it emits
-  `http://0.0.0.0:8080/login?next=%2Finitiatives`. Production is fine — the wire
-  response is relative (checked live 2026-09-16) — because Next normalizes a
-  same-origin middleware redirect, runtime behavior no test here pins and that a
-  Next upgrade could change. `npm test` cannot see it (the unit layer shows the
-  absolute URL), CI runs no test job on push, and the only thing that would
-  catch a regression is `npm run test:e2e` or a manual `curl -D -`, both run by
-  hand. Not fixed drive-by on purpose: making middleware emit a relative
-  `Location` means hand-building the response instead of `NextResponse.redirect`,
-  and this is the auth perimeter of a live system — a wrong guess either locks
-  everyone out or lets unauthenticated users through. Worth doing as its own
-  deliberate change, with the live `curl` check in the DoD, not bundled with
-  anything else.
+- [ ] **FV-5 — `proxy.ts` is correct only because Next rewrites its redirect.**
+  Found while correcting FV-2, then traced to the exact mechanism.
+
+  **What the code does.** `proxy.ts` builds an absolute URL from
+  `req.nextUrl.clone()` and returns `NextResponse.redirect(url)` — the same
+  shape as the E17 defect. Driven directly with an internal-origin request it
+  emits `http://0.0.0.0:8080/login?next=%2Finitiatives`.
+
+  **Why production is fine anyway.** Next post-processes the response:
+  `next/dist/server/web/adapter.js` ~line 363 and
+  `server/lib/router-utils/resolve-routes.js` ~line 489 both call
+  `getRelativeURL()`, which strips the origin when the redirect host equals the
+  request host. The browser therefore receives `location: /login?next=...`
+  (confirmed live 2026-09-16).
+
+  **The named trigger.** That rewrite is gated on
+  `!process.env.__NEXT_NO_MIDDLEWARE_URL_NORMALIZE`, which is set by the
+  documented `skipProxyUrlNormalize` config option. Turning that flag on — a
+  legitimate thing to do for `_next/data` path handling — switches the rewrite
+  off and reproduces the E17 outage on **every gated page redirect**, i.e. the
+  whole auth perimeter, not just SSO. The flag is not set today (`next.config.ts`
+  is clean) and nothing fails if someone sets it.
+
+  **Option A — make `proxy.ts` emit a relative `Location` itself. Ruled out.**
+  `adapter.js` re-parses the header with `new NextURL(location, …)` before
+  deciding whether to relativize, and `NextURL` throws `TypeError: Invalid URL`
+  on a relative input (verified against 16.2.10 with a `Headers` instance, a
+  plain object, and no headers). There is no `try`/`catch` around it, so this
+  would most likely 500 every gated navigation. Do not do this.
+
+  **Option B — remove the trigger instead of the dependency. Recommended.**
+  Assert in a test that `next.config.ts` sets neither `skipProxyUrlNormalize`
+  nor the deprecated `skipMiddlewareUrlNormalize`, with a comment in
+  `next.config.ts` pointing at E17. ~10 lines, no runtime change, no deploy
+  risk, and it closes the only concrete way this breaks. Does not protect
+  against Next changing the normalization in a future major — the e2e suite and
+  the post-deploy `curl -D -` remain the backstop for that.
+
+  **Option C — redirect to a configured public origin.** Keep
+  `NextResponse.redirect` (so the `NextURL` parse still gets an absolute URL) but
+  build it from an `APP_ORIGIN` env var instead of `nextUrl`, so the target is
+  right whether or not normalization runs. Removes the dependency properly, but
+  adds an env var that must be set on every deployment, and a wrong or missing
+  value breaks sign-in — more blast radius than the bug it prevents. Worth it
+  only if the app ever moves behind a different proxy or gains a second
+  hostname. Trusting `x-forwarded-host` instead of a config value is **not** an
+  acceptable substitute: it makes the redirect target attacker-controlled.
 
 - [x] **FV-3 — `relativeRedirect` appends its query inside a fragment.**
   `src/lib/redirect.ts` builds the `Location` by string concat, so

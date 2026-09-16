@@ -3,8 +3,13 @@ import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/src/lib/session-config";
 
 /**
- * Route gate (Next 16 renamed `middleware` → `proxy`). Runs on the Edge, so it
- * only DECRYPTS the sealed session cookie — no DB, no argon2.
+ * Route gate (Next 16 renamed `middleware` → `proxy`). It only DECRYPTS the
+ * sealed session cookie — no DB, no argon2 — because it sits on the hot path for
+ * every page navigation. Note this is a deliberate budget, not a runtime limit:
+ * Next 16 runs Proxy on the **Node.js** runtime by default and the `runtime`
+ * option is not available here (`node_modules/next/dist/docs/01-app/
+ * 03-api-reference/03-file-conventions/proxy.md` § Runtime), so the old "runs on
+ * the Edge" reasoning no longer applies.
  *
  * Tiers:
  *  - /login              public

@@ -14,7 +14,8 @@
     "db:reset": "tsx --env-file=.env src/db/reset.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "gates": "npm test && tsc --noEmit && npm run lint && npm run build"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

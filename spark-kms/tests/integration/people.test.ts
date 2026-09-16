@@ -9,7 +9,7 @@ import {
 import { createInitiative } from "@/src/services/initiatives";
 import { resetAndSeed, getSuperAdminId } from "@/tests/helpers/db";
 import { db } from "@/src/db";
-import { people, actionItems } from "@/src/db/schema";
+import { actionItems } from "@/src/db/schema";
 import type { NewInitiativeInput } from "@/src/validation/entry";
 
 const base: NewInitiativeInput = {

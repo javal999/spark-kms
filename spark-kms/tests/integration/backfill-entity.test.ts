@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/src/db";
-import { initiatives, tags, initiativeTags, people } from "@/src/db/schema";
+import { initiatives, tags, people } from "@/src/db/schema";
 import { resetAndSeed, getSuperAdminId } from "@/tests/helpers/db";
 import { backfillTags } from "@/src/db/backfill-tags";
 import { backfillPic } from "@/src/db/backfill-pic";

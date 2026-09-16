@@ -39,10 +39,24 @@ server-side reads. This is exactly how deployment 29 shipped a login page with n
 "Sign in with Microsoft" button on 2026-08-24. Keep these three in step with the
 runtime `environment` block below.
 
+**Deploy only what is committed, pushed and green.** The image is built on this
+Mac from the working tree — it never passes through CI, which runs only the
+nightly retention schedule. So nothing else stops an untested or uncommitted
+build from reaching production: the regression guards in
+`tests/unit/sso-redirects.test.ts` (E17, FV-1, FV-5) protect production only if
+they run here. The `&&` below is the gate — if any of the four fail, the image is
+never built. `git status` must be clean and not ahead of `origin`, so the
+deployed image is a commit you can find and roll back to.
+
 ```bash
 export DOCKER_HOST=$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')
 cd spark-kms
-# Build amd64 and load into local docker (Rosetta handles esbuild on Apple Silicon):
+# Refuse unless committed, pushed and green; then build amd64 and load into local
+# docker (Rosetta handles esbuild on Apple Silicon). No comments inside the chain:
+# interactive zsh runs `#` as a command unless `interactivecomments` is set.
+test -z "$(git status --porcelain)" && [ "$(git rev-list --count origin/main..HEAD)" = 0 ] \
+  || { echo "Commit and push first — deploy only what is in git." >&2; false; } && \
+npm run gates && \
 docker buildx build --platform linux/amd64 --load \
   --build-arg NEXT_PUBLIC_FEATURE_GRAPH=1 \
   --build-arg NEXT_PUBLIC_FEATURE_TRACKING=1 \

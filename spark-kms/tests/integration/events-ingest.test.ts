@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@/src/db";
 import { usageEvents } from "@/src/db/schema";
@@ -79,8 +80,25 @@ describe("usage ingest (T2)", () => {
   it("actor hash is deterministic and does not expose the identity", () => {
     const h = deriveActorHash("u:42");
     expect(h).toBe(deriveActorHash("u:42"));
-    expect(h).not.toContain("42");
     expect(deriveActorHash("u:42")).not.toBe(deriveActorHash("u:43"));
+    expect(h).toMatch(/^[0-9a-f]{32}$/);
+
+    // The privacy property is the KEY, not the digest's digits. User ids are small
+    // integers, so an unkeyed hash is reversed by hashing every id until one
+    // matches. This used to assert `not.toContain("42")`, which a random 32-char
+    // hex digest fails ~11% of the time: it passed or failed on SESSION_SECRET's
+    // value, and failed in CI, where the fallback key's digest contains "42".
+    const unkeyed = createHash("sha256").update("u:42").digest("hex").slice(0, 32);
+    expect(h).not.toBe(unkeyed);
+
+    const saved = process.env.SESSION_SECRET;
+    try {
+      process.env.SESSION_SECRET = "a-different-deployment-secret";
+      expect(deriveActorHash("u:42")).not.toBe(h);
+    } finally {
+      if (saved === undefined) delete process.env.SESSION_SECRET;
+      else process.env.SESSION_SECRET = saved;
+    }
   });
 
   it("rate-limits a flood from one session", () => {

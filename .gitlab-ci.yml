@@ -1,10 +1,17 @@
 # GitLab CI — SPARK KMS
 #
-# Single purpose: fire the nightly usage rollup + 90-day retention endpoint.
-# The `workflow` rule means a pipeline is created ONLY for SCHEDULED runs, so
-# ordinary git pushes add zero CI overhead (no build/test jobs run on push).
+# Two jobs, one per pipeline source. Each job carries its own `rules`, so a push
+# can never fire the retention endpoint and a schedule never runs the suite.
 #
-# Setup (see docs/ops-usage-retention.md):
+#   push     → `checks`: the full test suite against a throwaway Postgres 16
+#              (production runs postgres_16), then tsc and lint. `next build` is
+#              deliberately not here: images are built and deployed from the
+#              operator's Mac, and LIGHTSAIL-DEPLOY.md runs `npm run gates`
+#              (all four gates, build included) before any image is built. This
+#              job catches a red push early; it does not guard a deploy.
+#   schedule → `usage-retention`: the nightly rollup + 90-day retention call.
+#
+# Retention setup (see docs/ops-usage-retention.md):
 #   1. Settings → CI/CD → Variables: add CRON_SECRET (masked + protected),
 #      value = the same secret set in the Lightsail deployment env.
 #   2. Build → Pipeline schedules → New schedule: e.g. cron "0 20 * * *"
@@ -14,8 +21,38 @@
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+
+checks:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+  image: node:20-bookworm-slim
+  services:
+    - name: postgres:16
+      alias: postgres
+  variables:
+    # Throwaway credentials for the job's own service container. No production
+    # value exists in this job.
+    POSTGRES_DB: spark_kms_test
+    POSTGRES_USER: spark
+    POSTGRES_PASSWORD: spark
+    DATABASE_URL: postgresql://spark:spark@postgres:5432/spark_kms_test
+    TEST_DATABASE_URL: postgresql://spark:spark@postgres:5432/spark_kms_test
+  script:
+    - cd spark-kms
+    - npm ci --no-audit --no-fund
+    - for i in $(seq 1 30); do (echo > /dev/tcp/postgres/5432) 2>/dev/null && break; sleep 1; done
+    # Not `npm run db:migrate`: that passes `--env-file=.env`, and CI has no .env.
+    - npx tsx src/db/migrate.ts
+    # Route types, so tsc checks what it checks locally after a build.
+    - npx next typegen
+    - npm test
+    - npx tsc --noEmit
+    - npm run lint
 
 usage-retention:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   image: alpine:3.20
   script:
     - apk add --no-cache curl

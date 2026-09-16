@@ -53,3 +53,8 @@ next-env.d.ts
 
 # graphify knowledge graph
 graphify-out/
+
+# Lightsail deployment JSON (LIGHTSAIL-DEPLOY.md). It holds every production
+# secret in plain text. A failed deploy leaves it behind, and the build gate's
+# "commit and push first" must never be answered by committing it.
+current.json

@@ -35,7 +35,10 @@ always load it.
 7. **Live data migrations go through the ledger**, are idempotent, and are
    recorded in `MIGRATIONS.md` with the snapshot taken before them.
 8. **Keep all four gates green:** `npm test`, `npx tsc --noEmit`,
-   `npm run lint`, `npm run build`.
+   `npm run lint`, `npm run build`. If `tsc` reports duplicate identifiers in
+   `.next/types`, look for Finder/iCloud copies (`routes.d 2.ts`) before
+   believing it: `tsconfig.json` excludes `* ?.ts` for exactly that reason, so a
+   real duplicate-identifier error now means a real one.
 9. **Confirm with Levi before any push or deploy.** GitLab is the primary
    remote, GitHub the backup. Deploy per `LIGHTSAIL-DEPLOY.md`.
 

@@ -85,7 +85,7 @@ is reverted. These are the gaps the bypass review left open.
   `sanitizeNext` does permit `#`, so a future `next=/initiatives#tab` plus a
   param would hit it. Split the fragment off before appending.
 
-- [ ] **FV-4 — stale duplicated files in `.next/types` break the `tsc` gate.**
+- [x] **FV-4 — stale duplicated files in `.next/types` break the `tsc` gate.**
   `npx tsc --noEmit` failed with duplicate-identifier errors from
   `cache-life.d 2.ts`, `routes.d 2.ts` and `validator 2.ts` — Finder/iCloud
   copies inside generated output, nothing to do with any source change. A fresh

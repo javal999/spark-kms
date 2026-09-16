@@ -124,7 +124,7 @@ describe("logout redirect stays on the public site", () => {
   });
 });
 
-describe("no API route builds a redirect from req.url", () => {
+describe("API routes redirect only through relativeRedirect()", () => {
   // Guards every route handler, including ones added later.
   const files: string[] = [];
   const walk = (dir: string) => {
@@ -136,12 +136,35 @@ describe("no API route builds a redirect from req.url", () => {
   };
   walk(path.join(process.cwd(), "app/api"));
 
+  /**
+   * The rule, not one spelling of the bug: a route that hand-rolls a redirect can
+   * reintroduce the internal origin in a form no pattern here anticipated
+   * (`req.nextUrl.clone()`, `new URL(req.url).origin`, an aliased `req.url`, a
+   * bare `NextResponse.redirect(req.url)`). So every redirect out of `app/api`
+   * goes through `relativeRedirect()`, which can only emit a same-site path.
+   *
+   * One exception: starting the Entra flow is an intentional redirect off-site to
+   * the IdP's authorize URL, which is absolute by definition.
+   */
+  const EXTERNAL_REDIRECT_ROUTES = new Set(["app/api/auth/sso/start/route.ts"]);
+
   it("found the route files", () => {
     expect(files.length).toBeGreaterThan(10);
   });
 
-  it.each(files.map((f) => [path.relative(process.cwd(), f), f]))("%s", (_rel, file) => {
+  it.each(files.map((f) => [path.relative(process.cwd(), f), f]))("%s", (rel, file) => {
     const src = readFileSync(file, "utf8");
+
+    // The original 2026-09-11 defect, kept by name.
     expect(src).not.toMatch(/new URL\([^)]*,\s*(req|request)\.(url|nextUrl)\s*\)/);
+
+    // Any other route-built redirect, whatever it derives its origin from.
+    if (!EXTERNAL_REDIRECT_ROUTES.has(rel)) {
+      expect(src).not.toMatch(/NextResponse\.redirect\s*\(/);
+    }
+
+    // Including a Location header written by hand.
+    expect(src).not.toMatch(/\bheaders\s*:\s*\{[^}]*\bLocation\b/i);
+    expect(src).not.toMatch(/headers\.set\(\s*["\']Location["\']/i);
   });
 });

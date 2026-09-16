@@ -77,7 +77,7 @@ is reverted. These are the gaps the bypass review left open.
   deliberate change, with the live `curl` check in the DoD, not bundled with
   anything else.
 
-- [ ] **FV-3 — `relativeRedirect` appends its query inside a fragment.**
+- [x] **FV-3 — `relativeRedirect` appends its query inside a fragment.**
   `src/lib/redirect.ts` builds the `Location` by string concat, so
   `relativeRedirect("/x#frag", { e: "sso" })` yields `/x#frag?e=sso` — the
   query lands in the fragment and the server never sees it. Unreachable today

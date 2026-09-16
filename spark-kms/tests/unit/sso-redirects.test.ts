@@ -75,6 +75,15 @@ describe("relativeRedirect", () => {
     expect(location(res)).toBe("/login?e=sso&ref=err_1");
   });
 
+  it("keeps the query ahead of a fragment", () => {
+    // Concatenating blindly would yield `/x#frag?e=sso`, which puts the query
+    // inside the fragment and the server never receives it. sanitizeNext permits
+    // `#`, so a `next=/initiatives#tab` plus a param would reach this.
+    expect(location(relativeRedirect("/x#frag", { e: "sso" }))).toBe("/x?e=sso#frag");
+    expect(location(relativeRedirect("/x?a=1#frag", { e: "sso" }))).toBe("/x?a=1&e=sso#frag");
+    expect(location(relativeRedirect("/x#frag"))).toBe("/x#frag");
+  });
+
   it("refuses anything that is not a same-site path", () => {
     // Protocol-relative and absolute targets would turn this into an open redirect.
     for (const bad of ["//evil.example", "https://evil.example", "login", ""]) {

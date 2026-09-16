@@ -24,9 +24,16 @@ export function relativeRedirect(
   if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) {
     throw new Error(`relativeRedirect needs a same-site path, got ${JSON.stringify(path)}`);
   }
-  let location = path;
+  // Params go before any fragment: `/x#frag` + `{e}` is `/x?e=…#frag`, never
+  // `/x#frag?e=…`, which would hide the query inside the fragment.
+  const hash = path.indexOf("#");
+  const base = hash === -1 ? path : path.slice(0, hash);
+  const fragment = hash === -1 ? "" : path.slice(hash);
+
+  let location = base;
   if (params && Object.keys(params).length > 0) {
-    location += (path.includes("?") ? "&" : "?") + new URLSearchParams(params).toString();
+    location += (base.includes("?") ? "&" : "?") + new URLSearchParams(params).toString();
   }
+  location += fragment;
   return new NextResponse(null, { status, headers: { Location: location } });
 }

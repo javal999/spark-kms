@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/src/lib/session-config";
+import { publicOrigin } from "@/src/lib/redirect";
 
 /**
  * Route gate (Next 16 renamed `middleware` → `proxy`). It only DECRYPTS the
@@ -53,8 +54,13 @@ export async function proxy(req: NextRequest) {
   return res;
 }
 
+/** Absolute redirect to the public origin when APP_ORIGIN is set (FV-5 Option C);
+ * otherwise the request's own origin, as before. Path and query are identical
+ * either way — `tests/unit/proxy-gate.test.ts` checks every access decision in
+ * both modes. */
 function redirect(req: NextRequest, to: string, from: string | null) {
-  const url = req.nextUrl.clone();
+  const origin = publicOrigin();
+  const url = origin ? new URL(to, origin) : req.nextUrl.clone();
   url.pathname = to;
   url.search = from ? `?next=${encodeURIComponent(from)}` : "";
   return NextResponse.redirect(url);

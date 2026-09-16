@@ -9,10 +9,9 @@ import { NextResponse } from "next/server";
  * (`0.0.0.0:8080`), not the host the Lightsail proxy forwards, so an absolute
  * URL built from it sends the browser nowhere (TRD-2026-009 E17).
  *
- * Middleware (`proxy.ts`) does not use this and is unaffected in production —
- * verified at the wire, not by anything the code enforces: it builds an absolute
- * URL from `nextUrl`, which Next normalizes to a relative `Location` on the way
- * out (BACKLOG.md FV-5).
+ * Middleware (`proxy.ts`) cannot use this — Next re-parses a proxy redirect with
+ * `new NextURL()`, which throws on a relative URL — so it redirects to
+ * `publicOrigin()` instead (BACKLOG.md FV-5).
  *
  * Only same-site paths are accepted, so this can never become an open redirect.
  */
@@ -36,4 +35,39 @@ export function relativeRedirect(
   }
   location += fragment;
   return new NextResponse(null, { status, headers: { Location: location } });
+}
+
+const warnedOrigins = new Set<string>();
+
+/**
+ * The public origin page redirects point at, from `APP_ORIGIN`
+ * (`https://kms.paracorplabs.com`), reduced to scheme + host + port. Null when
+ * unset or unusable.
+ *
+ * `proxy.ts` needs this because it cannot use `relativeRedirect()`: Next re-parses
+ * a proxy redirect with `new NextURL(location)`, which throws on a relative URL
+ * (BACKLOG.md FV-5). Left to `req.nextUrl`, the redirect is correct in production
+ * only because Next's `resolve-routes.js` relativizes a same-origin proxy
+ * redirect — an internal no config option controls and an upgrade could change.
+ *
+ * Fails SAFE, never closed: an invalid value logs once and returns null, so the
+ * caller keeps today's behavior instead of 500-ing every gated page. A wrong but
+ * valid origin cannot be detected here — the post-deploy check catches it.
+ */
+export function publicOrigin(): string | null {
+  const raw = process.env.APP_ORIGIN?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "https:" || url.protocol === "http:") return url.origin;
+  } catch {
+    // not a URL at all — warn below
+  }
+  if (!warnedOrigins.has(raw)) {
+    warnedOrigins.add(raw);
+    console.error(
+      `APP_ORIGIN ${JSON.stringify(raw)} is not an http(s) origin; page redirects fall back to the request origin (TRD-2026-009 E17).`,
+    );
+  }
+  return null;
 }

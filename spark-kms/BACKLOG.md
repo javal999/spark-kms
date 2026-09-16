@@ -60,53 +60,62 @@ is reverted. These are the gaps the bypass review left open.
   behavior that isn't what the server does. Correct the wording so the next
   person debugging a redirect isn't working from a wrong model.
 
-- [x] **FV-5 — `proxy.ts` is correct only because Next rewrites its redirect.**
-  Found while correcting FV-2, then traced to the exact mechanism.
+- [x] **FV-5 — `proxy.ts` relied on Next rewriting its redirect. Fixed by Option C.**
+  Found while correcting FV-2.
 
-  **What the code does.** `proxy.ts` builds an absolute URL from
-  `req.nextUrl.clone()` and returns `NextResponse.redirect(url)` — the same
-  shape as the E17 defect. Driven directly with an internal-origin request it
-  emits `http://0.0.0.0:8080/login?next=%2Finitiatives`.
+  **What the code did.** `proxy.ts` built an absolute URL from
+  `req.nextUrl.clone()` and returned `NextResponse.redirect(url)` — the E17
+  defect shape. On a real standalone server the proxy's request URL carries the
+  bind address even when the `Host` header is `kms.paracorplabs.com`, so the
+  redirect it built was `http://0.0.0.0:8080/login?next=%2Finitiatives`.
 
-  **Why production is fine anyway.** Next post-processes the response:
-  `next/dist/server/web/adapter.js` ~line 363 and
-  `server/lib/router-utils/resolve-routes.js` ~line 489 both call
-  `getRelativeURL()`, which strips the origin when the redirect host equals the
-  request host. The browser therefore receives `location: /login?next=...`
-  (confirmed live 2026-09-16).
+  **Why production was fine anyway.** Next relativizes a same-origin redirect in
+  two places: `server/web/adapter.js` (~line 363) and
+  `server/lib/router-utils/resolve-routes.js` (~line 489). The browser received
+  `location: /login?next=...` (confirmed live 2026-09-16).
 
-  **The named trigger.** That rewrite is gated on
-  `!process.env.__NEXT_NO_MIDDLEWARE_URL_NORMALIZE`, which is set by the
-  documented `skipProxyUrlNormalize` config option. Turning that flag on — a
-  legitimate thing to do for `_next/data` path handling — switches the rewrite
-  off and reproduces the E17 outage on **every gated page redirect**, i.e. the
-  whole auth perimeter, not just SSO. The flag is not set today (`next.config.ts`
-  is clean). *Now guarded — see Option B.*
+  **Correction (2026-09-16).** An earlier version of this entry called the
+  `skipProxyUrlNormalize` option a one-flag trigger for the outage, and shipped
+  Option B to guard it. That was inferred from reading `adapter.js` alone. It was
+  then disproved by building with the flag on and probing a real standalone
+  server: the flag does switch off the `adapter.js` pass (it is a build-time
+  define, `build/define-env.js:155`), but `resolve-routes.js` has no reference to
+  it and still relativizes every proxy redirect — redirects stayed correct. The
+  real dependency was that unflagged `resolve-routes.js` pass, which no option
+  controls and a Next upgrade could change.
 
   **Option A — make `proxy.ts` emit a relative `Location` itself. Ruled out.**
-  `adapter.js` re-parses the header with `new NextURL(location, …)` before
-  deciding whether to relativize, and `NextURL` throws `TypeError: Invalid URL`
-  on a relative input (verified against 16.2.10 with a `Headers` instance, a
-  plain object, and no headers). There is no `try`/`catch` around it, so this
-  would most likely 500 every gated navigation. Do not do this.
+  `adapter.js` re-parses the header with `new NextURL(location, …)`, and
+  `NextURL` throws `TypeError: Invalid URL` on a relative input (verified against
+  16.2.10 with a `Headers` instance, a plain object, and no headers). There is no
+  `try`/`catch` around it, so this would most likely 500 every gated navigation.
 
-  **Option B — remove the trigger instead of the dependency. DONE 2026-09-16.**
-  Assert in a test that `next.config.ts` sets neither `skipProxyUrlNormalize`
-  nor the deprecated `skipMiddlewareUrlNormalize`, with a comment in
-  `next.config.ts` pointing at E17. ~10 lines, no runtime change, no deploy
-  risk, and it closes the only concrete way this breaks. Does not protect
-  against Next changing the normalization in a future major — the e2e suite and
-  the post-deploy `curl -D -` remain the backstop for that.
+  **Option B — guard the flag. Shipped, then removed the same day.** Its premise
+  was the disproved claim above, so it guarded nothing. Its Dockerfile check was
+  doubly moot: `__NEXT_NO_MIDDLEWARE_URL_NORMALIZE` comes from `next.config` at
+  build time, so a runtime `ENV` cannot set it.
 
-  **Option C — redirect to a configured public origin.** Keep
-  `NextResponse.redirect` (so the `NextURL` parse still gets an absolute URL) but
-  build it from an `APP_ORIGIN` env var instead of `nextUrl`, so the target is
-  right whether or not normalization runs. Removes the dependency properly, but
-  adds an env var that must be set on every deployment, and a wrong or missing
-  value breaks sign-in — more blast radius than the bug it prevents. Worth it
-  only if the app ever moves behind a different proxy or gains a second
-  hostname. Trusting `x-forwarded-host` instead of a config value is **not** an
-  acceptable substitute: it makes the redirect target attacker-controlled.
+  **Option C — redirect to a configured public origin. DONE 2026-09-16.**
+  `proxy.ts` builds redirects from `publicOrigin()` (`src/lib/redirect.ts`), which
+  reads `APP_ORIGIN`. Unset falls back to the old behavior; invalid falls back
+  and logs once — it never takes the perimeter down. Verified on a real
+  standalone server, each probe checked against the server's own PID:
+  with `APP_ORIGIN=https://kms.paracorplabs.com`, gated redirects are
+  `https://kms.paracorplabs.com/login?next=%2Finitiatives` on the public host
+  *and* the Lightsail default host, and stay so with `skipProxyUrlNormalize` on;
+  unset gives the old relative redirect; `kms.paracorplabs.com` (no scheme) gives
+  the old redirect plus one log line. `tests/unit/proxy-gate.test.ts` checks
+  every access decision in both modes. Trusting `x-forwarded-host` instead of a
+  config value is **not** an acceptable substitute: it makes the redirect target
+  attacker-controlled.
+
+  *Intended side effect:* a gated redirect on the raw Lightsail URL now lands on
+  `kms.paracorplabs.com`. That is the canonical host, and SSO only works there.
+
+  *Residual:* a deployment missing `APP_ORIGIN`, or with an invalid one, silently
+  falls back to depending on `resolve-routes.js`. The post-deploy check in
+  `LIGHTSAIL-DEPLOY.md` catches it: a gated page's `Location` must begin with
+  `https://kms.paracorplabs.com/`.
 
 - [x] **FV-3 — `relativeRedirect` appends its query inside a fragment.**
   `src/lib/redirect.ts` builds the `Location` by string concat, so

@@ -28,7 +28,7 @@ from the container), `SESSION_SECRET`, `NODE_ENV=production`. Container listens 
 AWS CLI with an MFA session: `Enforce-MFA-Policy` denies every Lightsail call, reads included, to the plain access key. Start one per terminal tab (lasts 12 h):
 `eval "$(aws sts get-session-token --serial-number arn:aws:iam::756286194006:mfa/levi-phone-google --token-code <code> --duration-seconds 43200 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text | awk '{print "export AWS_ACCESS_KEY_ID="$1" AWS_SECRET_ACCESS_KEY="$2" AWS_SESSION_TOKEN="$3}')"`
 Colima + Docker + buildx, `lightsailctl` (`brew install aws/tap/lightsailctl`); it needs `export DOCKER_HOST=$(docker context inspect colima --format '{{.Endpoints.docker.Host}}')`.
-**Every `create-container-service-deployment` and `get-container-service*` call gets a `--query`.** Their replies carry all 13 environment values; a bare call leaked them on 2026-09-11 and forced a full rotation.
+**Every `create-container-service-deployment` and `get-container-service*` call gets a `--query`.** Their replies carry all 14 environment values — `create-container-service-deployment` prints them twice, once per `currentDeployment` and `nextDeployment`; a bare call leaked them on 2026-09-11 and forced a full rotation.
 
 ## Redeploy a new version of the app
 **The `--build-arg` flags are not optional.** `NEXT_PUBLIC_*` are inlined into
@@ -69,23 +69,41 @@ aws lightsail push-container-image --service-name spark-kms --label app --image 
 ```
 
 **Build the deployment JSON from the live one, not from this page.** The running
-deployment carries **13** environment variables, not the 3 named above: the four
+deployment carries **14** environment variables, not the 3 named above: the four
 `AZURE_*` for SSO, `CRON_SECRET` for the retention job, the three
-`NEXT_PUBLIC_FEATURE_*`, both `OPENROUTER_*`, plus `DATABASE_URL`,
-`SESSION_SECRET` and `NODE_ENV`. Hand-writing the environment block from this
-runbook silently drops the other ten. Copy the live one and change only the image:
+`NEXT_PUBLIC_FEATURE_*`, both `OPENROUTER_*`, `APP_ORIGIN`
+(`https://kms.paracorplabs.com`, where page redirects point — FV-5), plus
+`DATABASE_URL`, `SESSION_SECRET` and `NODE_ENV`. Hand-writing the environment
+block from this runbook silently drops the other eleven. Copy the live one and
+change only the image — passed in as `IMAGE`, not hand-edited into the file:
 
 ```bash
+IMAGE=":spark-kms.app.N"   # exactly what push-container-image printed
 aws lightsail get-container-service-deployments --service-name spark-kms \
   --region ap-southeast-1 --query 'deployments[0]' --output json > current.json
-# edit containers.app.image to the new :spark-kms.app.N, keep environment verbatim
 aws lightsail create-container-service-deployment --service-name spark-kms \
-  --region ap-southeast-1 --cli-input-json "$(jq '{serviceName:"spark-kms", containers:{app:{image:.containers.app.image, environment:.containers.app.environment, ports:.containers.app.ports}}, publicEndpoint:{containerName:.publicEndpoint.containerName, containerPort:.publicEndpoint.containerPort, healthCheck:.publicEndpoint.healthCheck}}' current.json)"
+  --region ap-southeast-1 \
+  --query 'containerService.nextDeployment.{version:version,state:state}' \
+  --cli-input-json "$(jq --arg img "$IMAGE" '{serviceName:"spark-kms", containers:{app:{image:$img, environment:.containers.app.environment, ports:.containers.app.ports}}, publicEndpoint:{containerName:.publicEndpoint.containerName, containerPort:.publicEndpoint.containerPort, healthCheck:.publicEndpoint.healthCheck}}' current.json)" \
+  && rm current.json
 ```
+`current.json` holds every secret in plain text. It is removed on success; if the
+create fails, delete it yourself once you are done retrying.
 
-A deployment is `containers.app.image = :spark-kms.app.N`, `environment` (all 13
+A deployment is `containers.app.image = :spark-kms.app.N`, `environment` (all 14
 vars), `ports {"8080":"HTTP"}`, and `publicEndpoint` with healthCheck path
 `/api/health`, successCodes `200-399`.
+
+### After every deploy, check page redirects point at the public host
+A gated page must redirect to the absolute public URL. A relative `/login?next=…`
+means `APP_ORIGIN` is missing or invalid on the deployment, and page redirects
+have silently fallen back to depending on Next internals (FV-5):
+```bash
+curl -s -o /dev/null -D - https://kms.paracorplabs.com/initiatives | grep -i '^location'
+# expect: location: https://kms.paracorplabs.com/login?next=%2Finitiatives
+curl -s -o /dev/null -D - https://kms.paracorplabs.com/api/auth/logout | grep -i '^location'
+# expect: location: /login   (API routes stay relative by design — E17)
+```
 
 ### After every deploy, check the flags actually survived
 `curl` cannot answer this. `/login` is a client component behind `<Suspense>`, so

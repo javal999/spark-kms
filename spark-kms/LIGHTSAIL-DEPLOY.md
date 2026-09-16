@@ -79,16 +79,27 @@ change only the image — passed in as `IMAGE`, not hand-edited into the file:
 
 ```bash
 IMAGE=":spark-kms.app.N"   # exactly what push-container-image printed
-aws lightsail get-container-service-deployments --service-name spark-kms \
-  --region ap-southeast-1 --query 'deployments[0]' --output json > current.json
+aws lightsail get-container-services --service-name spark-kms \
+  --region ap-southeast-1 --query 'containerServices[0].currentDeployment' --output json > current.json
 aws lightsail create-container-service-deployment --service-name spark-kms \
   --region ap-southeast-1 \
   --query 'containerService.nextDeployment.{version:version,state:state}' \
   --cli-input-json "$(jq --arg img "$IMAGE" '{serviceName:"spark-kms", containers:{app:{image:$img, environment:.containers.app.environment, ports:.containers.app.ports}}, publicEndpoint:{containerName:.publicEndpoint.containerName, containerPort:.publicEndpoint.containerPort, healthCheck:.publicEndpoint.healthCheck}}' current.json)" \
   && rm current.json
 ```
+Copy `currentDeployment` — the one serving traffic — never `deployments[0]`, the
+newest. After a failed attempt the newest *is* the failure, and copying it carries
+its environment forward; that is how deployment 32 inherited 31's placeholder
+secret. Both have the same shape, so the `jq` filter is unchanged.
+
 `current.json` holds every secret in plain text. It is removed on success; if the
 create fails, delete it yourself once you are done retrying.
+
+Check progress without printing the environment:
+```bash
+aws lightsail get-container-services --service-name spark-kms --region ap-southeast-1 \
+  --query 'containerServices[0].{service:state, live:currentDeployment.{version:version,state:state,image:containers.app.image}, next:nextDeployment.{version:version,state:state}}'
+```
 
 A deployment is `containers.app.image = :spark-kms.app.N`, `environment` (all 14
 vars), `ports {"8080":"HTTP"}`, and `publicEndpoint` with healthCheck path

@@ -18,6 +18,23 @@ async function seedEvent(daysAgo: number, routePattern: string, eventType: "page
   });
 }
 
+async function seedAt(ts: Date, routePattern: string) {
+  await db.insert(usageEvents).values({
+    eventType: "page_view",
+    routePattern,
+    sessionId: "s",
+    actorHash: "h",
+    ts,
+  });
+}
+
+async function rawCount(): Promise<number> {
+  const [{ c }] = (await db.execute(
+    sql`SELECT count(*)::int AS c FROM usage_events`,
+  )) as unknown as { c: number }[];
+  return c;
+}
+
 async function dailyRows() {
   return db
     .select({
@@ -82,5 +99,41 @@ describe("usage retention + rollup (T4)", () => {
     const second = await dailyRows();
     expect(second).toEqual(first);
     expect(first.find((r) => r.route === "/")?.count).toBe(2);
+  });
+
+  /**
+   * NOW is 12:00 WIB on 2026-07-22, so NOW − 90 days is 12:00 WIB on 2026-04-23:
+   * the purge cutoff falls in the MIDDLE of that Jakarta day. The rollup buckets
+   * by whole Jakarta day and overwrites (`SET count = excluded.count`), so if a
+   * purge removes only the morning of 04-23, the next night's rollup recomputes
+   * 04-23 from the afternoon alone and overwrites the true count with a smaller
+   * one — permanently, because once the rest is purged nothing recomputes it.
+   */
+  it("keeps the full count for a day the purge cutoff falls inside, across nights", async () => {
+    await seedAt(new Date("2026-04-23T01:00:00Z"), "/straddle"); // 08:00 WIB, before the cutoff
+    await seedAt(new Date("2026-04-23T09:00:00Z"), "/straddle"); // 16:00 WIB, after it
+
+    await runRetention(NOW);
+    await runRetention(new Date(NOW.getTime() + 24 * 3600 * 1000)); // the next night
+    await runRetention(new Date(NOW.getTime() + 2 * 24 * 3600 * 1000));
+
+    expect((await dailyRows()).find((r) => r.route === "/straddle")?.count).toBe(2);
+  });
+
+  it("never deletes an event younger than 90 days", async () => {
+    const H = 3600 * 1000;
+    await seedAt(new Date(NOW.getTime() - (90 * 24 * H - 60 * 1000)), "/young"); // 90d minus a minute
+    await seedAt(new Date(NOW.getTime() - 89 * 24 * H), "/young");
+    expect(await purgeOldEvents(NOW)).toBe(0);
+    expect(await rawCount()).toBe(2);
+  });
+
+  it("deletes a Jakarta day whole once it is more than 90 days before today", async () => {
+    // 2026-04-21 in Jakarta, 23:59 WIB — the last minute of a day 92 days before 07-22.
+    await seedAt(new Date("2026-04-21T16:59:00Z"), "/stale");
+    // 2026-04-22 00:00 WIB — the first minute of the day 91 days before.
+    await seedAt(new Date("2026-04-21T17:00:00Z"), "/stale");
+    await purgeOldEvents(NOW);
+    expect(await rawCount()).toBe(0);
   });
 });

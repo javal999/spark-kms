@@ -30,14 +30,31 @@ export async function rollupUsageDaily(): Promise<number> {
   return (res as unknown as { count?: number }).count ?? 0;
 }
 
-/** Delete raw events older than the retention window. Returns rows deleted. */
+/**
+ * Delete raw events from whole Jakarta days more than `retentionDays` before
+ * today. Returns rows deleted.
+ *
+ * Whole days, never an instant: the rollup recomputes each Jakarta day from the
+ * raw rows present and OVERWRITES its count. A cutoff of `now − 90 days` lands
+ * mid-day, so the next night's rollup would rebuild that day from its surviving
+ * half and permanently undercount it. Purging whole days means a day is either
+ * fully present — and counted — or gone. The day expression matches the
+ * rollup's `(ts AT TIME ZONE 'Asia/Jakarta')::date` exactly, which is why this
+ * stays in SQL beside it; comparing `ts` to an instant keeps the index usable.
+ *
+ * No event younger than `retentionDays` is ever deleted, and each is deleted
+ * within a day of passing it.
+ */
 export async function purgeOldEvents(
   now: Date = new Date(),
   retentionDays: number = RETENTION_DAYS,
 ): Promise<number> {
-  const cutoff = new Date(now.getTime() - retentionDays * 24 * 3600 * 1000);
   const res = await db.execute(sql`
-    DELETE FROM usage_events WHERE ts < ${cutoff.toISOString()}
+    DELETE FROM usage_events
+    WHERE ts < (
+      ((${now.toISOString()}::timestamptz AT TIME ZONE 'Asia/Jakarta')::date - ${retentionDays}::int)::timestamp
+        AT TIME ZONE 'Asia/Jakarta'
+    )
   `);
   return (res as unknown as { count?: number }).count ?? 0;
 }

@@ -46,3 +46,32 @@ Returns `{ "ok": true, "purged": <n> }`. Idempotent — safe to run repeatedly.
   (it reads raw events); only "Top pages"/"Trend" wait for the rollup.
 - Rollup is a full recompute per day-bucket, so a missed night self-heals on the
   next run.
+
+## Exactly what gets deleted
+
+The purge deletes **whole Asia/Jakarta calendar days** that are more than 90
+days before today — never part of a day. So no event is deleted before it is 90
+days old, and each is deleted within a day after (on the next nightly run).
+
+Whole days are required, not a stylistic choice. The rollup recomputes each day
+from the raw rows present and overwrites that day's count. A purge cutoff of
+`now − 90 days` lands mid-day; the next rollup would rebuild that day from its
+surviving half and permanently undercount it. Fixed 2026-09-16, before any event
+was old enough for it to happen (tracking began no earlier than 2026-07-22), and
+guarded by `tests/integration/usage-retention.test.ts`.
+
+## When the scheduled job fails
+
+The job fails red and its log says why (`curl --fail-with-body` keeps the
+response):
+
+| Job log | Meaning | Fix |
+|---|---|---|
+| `CRON_SECRET is not set` | The variable is missing, or it is **protected** and the schedule's branch is not protected | Add it, or protect `main`, or untick "Protect variable" |
+| `returned error: 401` + `{"error":"Unauthorized"}` | The GitLab value does not match the deployment's `CRON_SECRET` | Copy the deployment's current value into the GitLab variable. It was rotated on 2026-09-11 (deployment 33) |
+| `returned error: 500` + `{"traceId":"err_…"}` | The rollup or purge threw | Look the trace id up in `/admin` → error log (super-only) |
+| `curl: (28)` | Timed out after 120 s | Check the error log and container log; raise `--max-time` and `maxDuration` together |
+| No scheduled pipelines, or stuck `pending` | Schedule inactive, its owner lost access, or no runner | Build → Pipeline schedules: check it is active and owned by a current maintainer |
+
+The 500 row needs the route's error capture, which ships in the first deployment
+after 2026-09-16; before it, a 500 left nothing in the error log.

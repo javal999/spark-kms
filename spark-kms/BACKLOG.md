@@ -7,29 +7,32 @@ tested, and live in production. These are "add when a real need shows up."
 
 - [ ] **Usage retention cron is not running yet.** `POST /api/cron/retention`
   (nightly rollup into `usage_daily` + 90-day purge of raw `usage_events`, see
-  `docs/ops-usage-retention.md`) was set up but the scheduled job is still
-  failing — Levi, 2026-08-24. Until it runs, the usage dashboard's "Top pages"
-  and "Trend" stop advancing and old events are never purged; the live "Your page
-  views" counter is unaffected. A missed night self-heals on the next run, so
-  this is not urgent, but it should not stay broken. Debug in order:
-  1. **Is `CRON_SECRET` on the deployment?** Without it the endpoint fails closed
-     (401). Confirmed present on live deployment 31 (2026-08-24), so this is
-     probably not the cause — but verify it survived any later redeploy.
-     **Rotated on 2026-09-11 (deployment 33)** after the old value was exposed;
-     the GitLab CI/CD variable has to hold the new value, so if the schedule
-     now returns 401, check that variable first.
-  2. **Does a manual call work?** `curl -fsS -X POST -H "Authorization: Bearer
-     <CRON_SECRET>" https://kms.paracorplabs.com/api/cron/retention` — expect
-     `{"ok":true,"purged":<n>}`. A **401** means the bearer the scheduler sends
-     doesn't match the deployment's `CRON_SECRET`. A **5xx** means the rollup
-     itself is erroring — check the `/admin` error log (super-only since D30).
-  3. **If the manual call works, the fault is the schedule, not the app.** In
-     GitLab → CI/CD → Schedules, confirm the schedule exists and is active, and
-     that `CRON_SECRET` is a **masked CI/CD variable** holding the same value the
-     deployment uses. The most common failure: the pipeline job references an
-     unset `$CRON_SECRET`, sends an empty bearer, and gets a 401 — so the job
-     "runs" but purges nothing. Check the schedule's last pipeline for the curl
-     job's exit code and output.
+  `docs/ops-usage-retention.md`) has been failing on its GitLab schedule since at
+  least 2026-08-24. The usage dashboard's "Top pages" and "Trend" are stale
+  until it runs; "Your page views" is live and unaffected.
+
+  **Deadline: about 2026-10-20.** Tracking began no earlier than 2026-07-22, so
+  that is when the oldest raw events turn 90 days old. The login page and the
+  privacy notice promise deletion after 90 days, and without the job nothing
+  deletes them.
+
+  **Diagnose from the job log first** — the last scheduled pipeline's
+  `usage-retention` job. `docs/ops-usage-retention.md` → "When the scheduled job
+  fails" maps each log line to its cause. Two causes are likely here:
+  `CRON_SECRET` was rotated on 2026-09-11 (deployment 33), so a GitLab value set
+  before then now gets a 401; and a **protected** variable is empty on a branch
+  that is not protected.
+
+  **Already fixed in code (2026-09-16), live from the next deployment:**
+  - The purge deletes whole Jakarta days. An instant cutoff would have
+    permanently undercounted the oldest day in `usage_daily` once purging began.
+    No data was affected — nothing was old enough yet.
+  - A failing rollup is recorded in `/admin`'s error log, and the 500 carries the
+    trace id. Before this, a 5xx left the error log empty, so this entry's old
+    advice to "check the error log" led nowhere.
+  - The secret check is constant-time.
+  - Already on `main`, no deploy needed: the job uses `curl --fail-with-body`, so
+    its log shows the response, not just the status.
 
 ## SSO redirect hardening (fix-verification of 131bcd2, 2026-09-16)
 

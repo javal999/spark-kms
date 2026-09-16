@@ -61,8 +61,10 @@ usage-retention:
         echo "CRON_SECRET is not set — add it as a CI/CD variable." >&2
         exit 1
       fi
-      # -f fails the job on any HTTP error (e.g. 401 = wrong secret), so a
-      # misconfiguration shows up as a red pipeline instead of a silent no-op.
-      curl -fsS --retry 2 --max-time 120 -X POST \
+      # --fail-with-body fails the job on any HTTP error, like -f, but keeps the
+      # response in the log: 401 prints {"error":"Unauthorized"} (the secret here
+      # does not match the deployment's), and a 500 prints a traceId to look up
+      # in /admin's error log.
+      curl --fail-with-body -sS --retry 2 --max-time 120 -X POST \
         -H "Authorization: Bearer ${CRON_SECRET}" \
         https://kms.paracorplabs.com/api/cron/retention
